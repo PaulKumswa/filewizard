@@ -14,7 +14,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from .operations import ALL_EXTS, DIR, OPERATIONS, for_ext
+from .operations import ALL_EXTS, ANY_FILE, DIR, OPERATIONS, for_ext
 from .util import APP_NAME, app_dir
 
 ROOT = r"Software\Classes\SystemFileAssociations"
@@ -44,9 +44,16 @@ def _submenu_index() -> dict[tuple[str, ...], int]:
 
 
 def _menu_root(ext: str) -> str:
+    if ext == ANY_FILE:
+        return rf"Software\Classes\*\shell\{MENU_KEY}"
     if ext == DIR:
         return rf"Software\Classes\Directory\shell\{MENU_KEY}"
     return rf"{ROOT}\{ext}\shell\{MENU_KEY}"
+
+
+def applies_to_unknown() -> str:
+    """Advanced Query Syntax filter: any file whose extension isn't one we register."""
+    return "NOT (" + " OR ".join(f'System.FileExtension:="{e}"' for e in ALL_EXTS) + ")"
 
 
 def build_entries(command_prefix: str, icon: str | None) -> Entries:
@@ -54,12 +61,15 @@ def build_entries(command_prefix: str, icon: str | None) -> Entries:
     entries: Entries = []
     sub_idx = _submenu_index()
     gidx = {op.id: i for i, op in enumerate(OPERATIONS)}
-    for ext in [*ALL_EXTS, DIR]:
-        ops = for_ext(ext)
+    for ext in [*ALL_EXTS, DIR, ANY_FILE]:
+        ops = for_ext(ext) if ext != ANY_FILE else [op for op in OPERATIONS if ANY_FILE in op.exts]
         if not ops:
             continue
         base = _menu_root(ext)
         top = {"MUIVerb": (REG_SZ, APP_NAME), "SubCommands": (REG_SZ, "")}
+        if ext == ANY_FILE:
+            # Only for types without their own FileWizard menu, so nothing shows twice.
+            top["AppliesTo"] = (REG_SZ, applies_to_unknown())
         if icon:
             top["Icon"] = (REG_SZ, icon)
         entries.append((base, top))
@@ -223,7 +233,7 @@ def uninstall(quiet: bool = False) -> int:
     except FileNotFoundError:
         subkeys = []
     paths = [rf"{ROOT}\{ext}\shell\{MENU_KEY}" for ext in subkeys]  # scan: cleans old versions too
-    paths.append(_menu_root(DIR))
+    paths += [_menu_root(DIR), _menu_root(ANY_FILE)]
     for path in paths:
         try:
             winreg.OpenKey(hk, path).Close()
@@ -271,7 +281,8 @@ def install() -> None:
 
 def render_menu(ext: str) -> str:
     """Text picture of the FileWizard submenu for one extension, exactly as registered."""
-    ext = ext if ext == DIR or ext.startswith(".") else "." + ext
+    ext = {"folder": DIR, "dir": DIR, "any": ANY_FILE}.get(ext.lower(), ext)
+    ext = ext if ext in (DIR, ANY_FILE) or ext.startswith(".") else "." + ext
     ext = ext.lower()
     base = _menu_root(ext)
     entries = {k: v for k, v in build_entries("cmd", None) if k.startswith(base)}

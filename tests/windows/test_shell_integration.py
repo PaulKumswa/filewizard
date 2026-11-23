@@ -17,8 +17,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 if sys.platform == "win32":
-    import pythoncom
-
     sys.path.insert(0, str(Path(__file__).parent))
     import shell_probe
 
@@ -29,7 +27,6 @@ def installed():
     os.environ["FILEWIZARD_NO_NOTIFY"] = "1"
     from filewizard import shell_menu
 
-    pythoncom.CoInitialize()
     shell_menu.install()
     yield
     shell_menu.uninstall()
@@ -99,3 +96,26 @@ def test_click_mixed_image_types(tmp_path):
     files = [_img(tmp_path / "x.jpg"), _img(tmp_path / "y.png")]
     shell_probe.click("Convert to/WebP", files)
     _wait_for(tmp_path, "*.webp", count=2)
+
+
+def test_unknown_type_gets_more_menu(tmp_path):
+    f = tmp_path / "data.bin"
+    f.write_bytes(b"\x00" * 10)
+    lines = shell_probe.dump([str(f)])
+    print("\n".join(lines))
+    assert any("Checksum" in line for line in lines)
+
+
+def test_known_type_has_exactly_one_filewizard(tmp_path):
+    top = shell_probe.top_level([_pdf(tmp_path / "one.pdf")])
+    print(top)
+    assert top.count("FileWizard") == 1
+
+
+def test_folder_menu(tmp_path):
+    d = tmp_path / "Folder A"
+    d.mkdir()
+    (d / "x.txt").write_text("x")
+    lines = shell_probe.dump([str(d)])
+    print("\n".join(lines))
+    assert any("ZIP" in line for line in lines)

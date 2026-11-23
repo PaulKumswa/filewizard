@@ -106,17 +106,17 @@ def extract(src: Path, here: bool = False) -> list[Path]:
         raise UserError(f"{src.name} looks damaged or isn't a supported archive ({e}).") from e
 
     items = list(stage.iterdir())
-    if here and len(items) == 1:
+    if len(items) == 1 and items[0].is_dir() and items[0].name.lower() == stage.name.lower():
+        # archive already wraps everything in a folder named like itself: drop one level
+        inner = items[0].rename(stage / f".fw-unwrap-{os.getpid()}")
+        for child in inner.iterdir():
+            shutil.move(str(child), stage / child.name)
+        inner.rmdir()
+    elif here and len(items) == 1:
         dest = unique_path(src.parent / items[0].name)
         shutil.move(str(items[0]), dest)
         stage.rmdir()
         return [dest]
-    if len(items) == 1 and items[0].is_dir() and items[0].name == stage.name:
-        # archive already wraps everything in a folder named like itself: flatten one level
-        inner = items[0]
-        for child in inner.iterdir():
-            shutil.move(str(child), stage / child.name)
-        inner.rmdir()
     return [stage]
 
 

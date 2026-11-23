@@ -31,6 +31,7 @@ OFFICE_EXTS = WORD_EXTS | SLIDE_EXTS | SHEET_EXTS
 MARKDOWN_EXTS = {".md", ".markdown"}
 HTML_EXTS = {".html", ".htm"}
 DIR = "<folder>"  # pseudo-extension: right-click on a folder
+ANY_FILE = "*"    # pseudo-extension: any file at all (registered for unknown types too)
 DOC_LIKE = PDF_EXTS | OFFICE_EXTS | EBOOK_EXTS | MARKDOWN_EXTS | HTML_EXTS
 EVERYTHING = IMAGE_EXTS | VIDEO_EXTS | AUDIO_EXTS | DOC_LIKE | DATA_EXTS | ARCHIVE_EXTS
 
@@ -55,7 +56,9 @@ class Operation:
 
     def applies_to(self, ext: str) -> bool:
         ext = ext.lower()
-        return ext in self.exts and ext not in self.exclude_exts
+        if ext in self.exclude_exts:
+            return False
+        return ext in self.exts or (ANY_FILE in self.exts and ext != DIR)
 
     def applies_to_path(self, p: Path) -> bool:
         return self.applies_to(DIR if p.is_dir() else p.suffix)
@@ -360,13 +363,13 @@ def _build() -> list[Operation]:
 
     # ===== More ▸ (any file, folders too) =====
     MORE = ("More",)
-    ANY = EVERYTHING | {DIR}
+    ANY = {ANY_FILE, DIR}
     add("zip", "Compress to ZIP", ANY, "more", menu=MORE, batch=lambda ps, _: archives.make_zip(ps))
     add("7z", "Compress to 7z (smaller)", ANY, "more", menu=MORE, batch=lambda ps, _: archives.make_7z(ps))
-    add("rename", "Rename selected…", EVERYTHING, "more", menu=MORE,
+    add("rename", "Rename selected…", {ANY_FILE}, "more", menu=MORE,
         batch=lambda ps, prm: files.rename(sorted(ps, key=natural_key), prm["pattern"]), ask=_ask_rename,
         param_names=("pattern",))
-    add("checksum", "Checksum (SHA-256)", EVERYTHING, "more", menu=MORE, batch=lambda ps, _: files.checksums(ps))
+    add("checksum", "Checksum (SHA-256)", {ANY_FILE}, "more", menu=MORE, batch=lambda ps, _: files.checksums(ps))
     add("folder-combine-pdf", "Combine PDFs/images inside into one PDF", {DIR}, "more", menu=MORE,
         per_file=lambda p, _: pdf.combine_any(_folder_docs(p)))
     return ops
@@ -385,7 +388,7 @@ def _folder_docs(folder: Path) -> list[Path]:
 
 OPERATIONS: list[Operation] = _build()
 BY_ID: dict[str, Operation] = {op.id: op for op in OPERATIONS}
-ALL_EXTS: list[str] = sorted({e for op in OPERATIONS for e in op.exts if e != DIR})
+ALL_EXTS: list[str] = sorted({e for op in OPERATIONS for e in op.exts if e not in (DIR, ANY_FILE)})
 
 _ids = [op.id for op in OPERATIONS]
 assert len(_ids) == len(set(_ids)), "duplicate operation id"

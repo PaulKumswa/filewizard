@@ -30,19 +30,19 @@ The menu adapts to what you right-clicked and how many files are selected.
 
 | Right-click on… | Actions |
 |---|---|
-| **Images** — JPG, PNG, WebP, **HEIC** (iPhone), AVIF, GIF, TIFF, BMP, ICO, **SVG**, PSD, TGA, JPEG 2000, **camera RAW** (CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF…) | Convert to PDF/PNG/JPG/WebP/HEIC/AVIF/GIF/TIFF/BMP/ICO (animations stay animated) · Combine into one PDF · Contact sheet · Compress · Resize (25/50/75%, 4K, Full HD, 1280, 800, custom) · Rotate/flip · Black & white · Crop borders · Pad to square · Remove background (AI, optional) · Copy text out of image (OCR) · Remove location/camera info |
-| **PDF** | Convert to Word, PNG, JPG, text · **Merge** · Split · Extract/delete pages · Reverse · Remove blank pages · Rotate · Compress · Page numbers · Watermark · Black & white · Flatten forms · Add/remove password · Make searchable (OCR) · Extract images |
-| **Video** — MP4, MOV, MKV, WebM, AVI, WMV, FLV, MPG, 3GP, TS/MTS… | Convert to MP4/MKV/WebM/MOV/AVI/WMV/GIF (instant, lossless when only the container changes) · Extract audio (MP3/M4A/WAV) · **Compress** (same look, or **fit under 10 MB / 25 MB / 100 MB / any size** for Discord, email…) · Resize 1080p/720p/480p · **Trim** · Rotate/flip · Speed 0.5×–2× · Fix volume · Remove sound · **Join** selected · Save a frame / extract frames |
+| **Images** — JPG, PNG, WebP, **HEIC** (iPhone), AVIF, GIF, TIFF, BMP, ICO, **SVG**, PSD, TGA, JPEG 2000, **camera RAW** (CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF…) | Convert to PDF/PNG/JPG/WebP/HEIC/AVIF/GIF/TIFF/BMP/ICO (animations stay animated) · Combine into one PDF · Contact sheet · Compress (same look, or **under 1 MB / 500 KB / 200 KB / any size** for upload forms) · Resize (25/50/75%, 4K, Full HD, 1280, 800, custom) · Rotate/flip · Black & white · Crop borders · Pad to square · Watermark · Website/app icon pack · Remove background (AI, optional) · Copy text out of image (OCR) · Remove location/camera info |
+| **PDF** | Convert to Word, PNG, JPG, text · **Merge** · Split · Extract/delete pages (**click thumbnails**) · Reverse · Remove blank pages · Rotate all or **just some pages** · Compress (same look, or **under 5 / 2 / 1 MB / any size**) · **Sign** (place your signature image) · Page numbers · Watermark · Black & white · Flatten forms · Add/remove password · Make searchable (OCR) · Copy all text · Extract images |
+| **Video** — MP4, MOV, MKV, WebM, AVI, WMV, FLV, MPG, 3GP, TS/MTS… | Convert to MP4/MKV/WebM/MOV/AVI/WMV/GIF (instant, lossless when only the container changes) · Extract audio (MP3/M4A/WAV) · **Compress** (same look, or **fit under 10 MB / 25 MB / 100 MB / any size** for Discord, email…) · Resize 1080p/720p/480p · **Trim** · Rotate/flip · Speed 0.5×–2× · Fix volume · Remove sound · **Join** selected · Save a frame / extract frames · Burn in / extract subtitles |
 | **Audio** — MP3, WAV, FLAC, M4A, AAC, OGG, Opus, WMA, AIFF… | Convert to MP3/M4A/WAV/FLAC/OGG/Opus/AIFF · Compress · Trim · Speed · Fix volume · Join selected |
 | **Word / PowerPoint / Excel** (incl. old .doc/.ppt/.xls and OpenDocument) | Convert to PDF · old formats → .docx/.pptx/.xlsx · Combine into one PDF |
 | **Ebooks** — EPUB, MOBI, FB2, XPS, CBZ | Convert to PDF or text |
 | **Markdown / HTML / text** | Convert to PDF (Markdown also to a styled web page) |
 | **Data** — CSV, TSV, Excel, JSON | Convert between CSV ⇄ Excel ⇄ JSON (keeps leading zeros, handles `;` CSVs and Windows encodings) |
 | **Archives** — ZIP, 7z, TAR, GZ, RAR, ISO… | Extract here · Extract to folder (protected against malicious "zip-slip" archives) |
-| **Any file or folder** | Compress to ZIP / 7z · Rename selected… (`Trip {n}` → Trip 01, Trip 02…) · Checksum (SHA-256) · Folders: combine all PDFs/images inside into one PDF |
+| **Any file or folder** | Compress to ZIP / 7z · Rename selected… (`Trip {n}` → Trip 01, Trip 02…; `{taken}` = photo date) · Show details (size, dimensions, duration, camera, **GPS warning**) · Checksum (SHA-256) · Folders: combine all PDFs/images inside into one PDF |
 | **A mix** (e.g. 2 PDFs + a photo + a Word doc) | **Combine selected into one PDF**, with a bookmark per file |
 
-Results are saved **next to the original**, never overwriting anything (`report (merged).pdf`,
+Results are saved **next to the original** (or in a `FileWizard` subfolder, your choice in Settings), never overwriting anything (`report (merged).pdf`,
 `photo (2).png`). When a job finishes, a small notification offers **Open** and **Show in folder**.
 Long jobs show a progress bar with **Cancel**.
 

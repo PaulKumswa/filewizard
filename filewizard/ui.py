@@ -579,3 +579,117 @@ def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None
     ttk.Button(frm, text="Close", command=root.destroy).pack(anchor="e", pady=(12, 0))
     _center(root)
     root.mainloop()
+
+
+# ---------- visual page picker ----------
+
+def pages_to_spec(selected: list[int]) -> str:
+    """[0,1,2,4,7,8] -> '1-3,5,8-9' (1-based ranges)."""
+    out, run_start, prev = [], None, None
+    for p in sorted(set(selected)):
+        if run_start is None:
+            run_start = prev = p
+        elif p == prev + 1:
+            prev = p
+        else:
+            out.append(f"{run_start + 1}" if run_start == prev else f"{run_start + 1}-{prev + 1}")
+            run_start = prev = p
+    if run_start is not None:
+        out.append(f"{run_start + 1}" if run_start == prev else f"{run_start + 1}-{prev + 1}")
+    return ",".join(out)
+
+
+def pick_pages(pdf: Path, verb: str, max_pages: int = 400) -> str | None:
+    """Thumbnail grid: click pages to select them. Returns a page spec like '1-3,5' or None."""
+    import tkinter as tk
+    from tkinter import ttk
+
+    import pymupdf
+
+    doc = pymupdf.open(pdf)
+    n = doc.page_count
+    if n > max_pages:
+        doc.close()
+        return ask_string(f"Pages to {verb}, e.g.  1-3, 5, 8-   ({pdf.name} has {n} pages)")
+    root = _root(f"{APP_NAME} — {verb.title()} pages: {pdf.name}", hidden=False)
+    frm = ttk.Frame(root, padding=10)
+    frm.pack(fill="both", expand=True)
+    head = ttk.Label(frm, text=f"Click the pages to {verb}.", font=("Segoe UI", 11, "bold"))
+    head.pack(anchor="w")
+    canvas = tk.Canvas(frm, width=760, height=520, background="#eef0f4", highlightthickness=0)
+    bar = ttk.Scrollbar(frm, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=bar.set)
+    canvas.pack(side="left", fill="both", expand=True, pady=(8, 0))
+    bar.pack(side="left", fill="y", pady=(8, 0))
+    grid = tk.Frame(canvas, background="#eef0f4")
+    canvas.create_window((0, 0), window=grid, anchor="nw")
+    selected: set[int] = set()
+    images, tiles = [], []
+    cols, thumb = 5, 130
+    spec = tk.StringVar()
+    result: dict[str, str | None] = {"v": None}
+
+    def paint(i):
+        tiles[i].configure(background=ACCENT if i in selected else "#eef0f4")
+
+    def toggle(i, _=None):
+        selected.symmetric_difference_update({i})
+        paint(i)
+        spec.set(pages_to_spec(sorted(selected)))
+
+    for i, page in enumerate(doc):
+        zoom = thumb / max(page.rect.width, page.rect.height)
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
+        img = tk.PhotoImage(data=pix.tobytes("ppm"))
+        images.append(img)
+        tile = tk.Frame(grid, background="#eef0f4", padx=4, pady=4, cursor="hand2")
+        tile.grid(row=i // cols, column=i % cols, padx=6, pady=6)
+        lab = tk.Label(tile, image=img, borderwidth=1, relief="solid")
+        lab.pack()
+        num = tk.Label(tile, text=str(i + 1), background="#eef0f4")
+        num.pack()
+        for w in (tile, lab, num):
+            w.bind("<Button-1>", lambda e, i=i: toggle(i))
+        tiles.append(tile)
+        if i % 20 == 0:
+            root.update()
+    doc.close()
+    grid.update_idletasks()
+    canvas.configure(scrollregion=canvas.bbox("all"))
+    canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-e.delta / 120), "units"))
+    canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+    canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+
+    def apply_typed(*_):
+        from .util import UserError, parse_page_ranges
+
+        try:
+            idx = set(parse_page_ranges(spec.get(), n)) if spec.get().strip() else set()
+        except UserError:
+            return
+        selected.clear()
+        selected.update(idx)
+        for i in range(n):
+            paint(i)
+
+    foot = ttk.Frame(root, padding=(10, 0, 10, 10))
+    foot.pack(fill="x")
+    ttk.Label(foot, text="Pages:").pack(side="left")
+    entry = ttk.Entry(foot, textvariable=spec, width=28)
+    entry.pack(side="left", padx=6)
+    entry.bind("<KeyRelease>", apply_typed)
+    ttk.Button(foot, text="All", command=lambda: (spec.set(f"1-{n}"), apply_typed())).pack(side="left")
+    ttk.Button(foot, text="None", command=lambda: (spec.set(""), apply_typed())).pack(side="left", padx=4)
+
+    def ok(_=None):
+        if spec.get().strip():
+            result["v"] = spec.get()
+            root.destroy()
+
+    ttk.Button(foot, text="Cancel", command=root.destroy).pack(side="right")
+    ttk.Button(foot, text=verb.title(), command=ok).pack(side="right", padx=6)
+    root.bind("<Return>", ok)
+    root.bind("<Escape>", lambda e: root.destroy())
+    _center(root)
+    root.mainloop()
+    return result["v"]

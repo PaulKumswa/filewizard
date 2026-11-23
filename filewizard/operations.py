@@ -79,6 +79,13 @@ def _ask_pages(verb: str):
     def ask(paths: list[Path]) -> Params | None:
         from .pdf import _open
 
+        if len(paths) == 1:  # one PDF: show thumbnails to click
+            try:
+                v = ui.pick_pages(paths[0], verb)
+                return None if v is None else {"pages": v}
+            except (ImportError, RuntimeError):
+                pass
+
         counts = []
         for p in paths[:3]:
             try:

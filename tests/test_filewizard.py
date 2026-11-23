@@ -482,3 +482,12 @@ def test_cli_survives_cp1252_console(tmp_path):
     assert r.returncode == 0, r.stderr.decode(errors="replace")
     r = subprocess.run([sys.executable, "-m", "filewizard", "menu", ".pdf"], cwd=REPO, env=env, capture_output=True)
     assert r.returncode == 0 and b"Merge" in r.stdout
+
+
+def test_pages_to_spec():
+    from filewizard.ui import pages_to_spec
+
+    assert pages_to_spec([0, 1, 2, 4, 7, 8]) == "1-3,5,8-9"
+    assert pages_to_spec([3]) == "4"
+    assert pages_to_spec([]) == ""
+    assert parse_page_ranges(pages_to_spec([0, 2, 3, 9]), 10) == [0, 2, 3, 9]

@@ -203,9 +203,10 @@ jobs:
           $py = (Get-Command python).Source
           ./tests/windows/nonelevated_probe.ps1 -Python $py -Probe "${{ github.workspace }}\tests\windows\shell_probe.py" -Click
       - name: Uninstall cleans up
+        timeout-minutes: 5
         shell: pwsh
         run: |
-          Start-Process "${env:ProgramFiles}\FileWizard\unins000.exe" -ArgumentList "/VERYSILENT" -Wait
+          Start-Process "${env:ProgramFiles}\FileWizard\unins000.exe" -ArgumentList "/VERYSILENT" -Wait  # no /SUPPRESSMSGBOXES on purpose: silent must not prompt
           Start-Sleep 3
           reg query "HKLM\Software\Classes\CLSID\{6E2B7D59-3D4A-4C61-9F0E-FA11E3A1D0C8}" 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) { throw "shell extension still registered after uninstall" }

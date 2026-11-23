@@ -90,8 +90,9 @@ begin
   begin
     RemoveFromPath(ExpandConstant('{app}'));
     // settings, log, recent actions, downloaded OCR languages (asked; silent uninstall removes them)
-    if SuppressibleMsgBox('Also remove your FileWizard settings and downloaded OCR languages?',
-                          mbConfirmation, MB_YESNO, IDYES) = IDYES then
+    // a silent uninstall never shows boxes (even without /SUPPRESSMSGBOXES): it just removes them
+    if UninstallSilent or (SuppressibleMsgBox('Also remove your FileWizard settings and downloaded OCR languages?',
+                          mbConfirmation, MB_YESNO, IDYES) = IDYES) then
       DelTree(ExpandConstant('{localappdata}\FileWizard'), True, True, True);
   end;
 end;

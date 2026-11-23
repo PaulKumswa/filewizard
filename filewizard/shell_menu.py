@@ -14,7 +14,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from .operations import ALL_EXTS, ANY_FILE, DIR, OPERATIONS, for_ext
+from .operations import ALL_EXTS, ANY_FILE, BACKGROUND, DIR, OPERATIONS, for_ext
 from .util import APP_NAME, app_dir
 
 ROOT = r"Software\Classes\SystemFileAssociations"
@@ -44,6 +44,8 @@ def _submenu_index() -> dict[tuple[str, ...], int]:
 
 
 def _menu_root(ext: str) -> str:
+    if ext == BACKGROUND:
+        return rf"Software\Classes\Directory\Background\shell\{MENU_KEY}"
     if ext == ANY_FILE:
         return rf"Software\Classes\*\shell\{MENU_KEY}"
     if ext == DIR:
@@ -102,10 +104,11 @@ def build_entries(command_prefix: str, icon: str | None, compact: bool = True) -
     entries: Entries = []
     sub_idx = _submenu_index()
     gidx = {op.id: i for i, op in enumerate(OPERATIONS)}
-    for ext in [*ALL_EXTS, DIR, ANY_FILE]:
+    for ext in [*ALL_EXTS, DIR, ANY_FILE, BACKGROUND]:
         ops = for_ext(ext) if ext != ANY_FILE else [op for op in OPERATIONS if ANY_FILE in op.exts]
         if not ops:
             continue
+        target = '"%V"' if ext == BACKGROUND else '"%1"'  # %V = the folder you right-clicked inside
         if compact:
             ops = fit_classic(ops)
         base = _menu_root(ext)
@@ -139,7 +142,7 @@ def build_entries(command_prefix: str, icon: str | None, compact: bool = True) -
                 "MultiSelectModel": (REG_SZ, "Player"),
             }
             entries.append((key, vals))
-            entries.append((rf"{key}\command", {"": (REG_SZ, f'{command_prefix} {op.id} "%1"')}))
+            entries.append((rf"{key}\command", {"": (REG_SZ, f'{command_prefix} {op.id} {target}')}))
             if not op.menu:
                 nodes[key] = (gidx[op.id], op.group)
 
@@ -290,7 +293,8 @@ def _refresh_explorer() -> None:
 
 CLSID = "{6E2B7D59-3D4A-4C61-9F0E-FA11E3A1D0C8}"  # must match native/fwshell.cpp
 HANDLER_PARENTS = (r"Software\Classes\*\shellex\ContextMenuHandlers",
-                   r"Software\Classes\Directory\shellex\ContextMenuHandlers")
+                   r"Software\Classes\Directory\shellex\ContextMenuHandlers",
+                   r"Software\Classes\Directory\Background\shellex\ContextMenuHandlers")
 
 
 # Menu images: glyphs from Windows' own icon font (what Explorer uses), keyed by
@@ -384,7 +388,7 @@ def manifest_lines(command: str, icon: str | None, icons: dict[str, str] | None 
         return lines
 
     groups: dict[tuple[str, ...], list[str]] = {}
-    for ext in [*ALL_EXTS, DIR, ANY_FILE]:
+    for ext in [*ALL_EXTS, DIR, ANY_FILE, BACKGROUND]:
         body = tuple(block(ext))
         if body:
             groups.setdefault(body, []).append(ext)
@@ -500,7 +504,7 @@ def uninstall(quiet: bool = False) -> int:
     except FileNotFoundError:
         subkeys = []
     paths = [rf"{ROOT}\{ext}\shell\{MENU_KEY}" for ext in subkeys]  # scan: cleans old versions too
-    paths += [_menu_root(DIR), _menu_root(ANY_FILE)]
+    paths += [_menu_root(DIR), _menu_root(ANY_FILE), _menu_root(BACKGROUND)]
     for path in paths:
         try:
             winreg.OpenKey(hk, path).Close()
@@ -582,8 +586,8 @@ def install(mode: str = "auto") -> str:
 
 def render_menu(ext: str) -> str:
     """Text picture of the FileWizard submenu for one extension, exactly as registered."""
-    ext = {"folder": DIR, "dir": DIR, "any": ANY_FILE}.get(ext.lower(), ext)
-    ext = ext if ext in (DIR, ANY_FILE) or ext.startswith(".") else "." + ext
+    ext = {"folder": DIR, "dir": DIR, "any": ANY_FILE, "background": BACKGROUND}.get(ext.lower(), ext)
+    ext = ext if ext in (DIR, ANY_FILE, BACKGROUND) or ext.startswith(".") else "." + ext
     ext = ext.lower()
     base = _menu_root(ext)
     entries = {k: v for k, v in build_entries("cmd", None) if k.startswith(base)}

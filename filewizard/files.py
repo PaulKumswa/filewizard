@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 import re
 from datetime import datetime
 from pathlib import Path
@@ -174,3 +175,77 @@ def _pdf_details(f: Path) -> str:
         return "\n".join(out)
     finally:
         d.close()
+
+
+def _stamp() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H%M%S")
+
+
+def paste_image(folder: Path) -> list[Path]:
+    """Save the image on the clipboard (e.g. from Win+Shift+S) as a PNG in this folder."""
+    from PIL import Image, ImageGrab
+
+    from .util import unique_path
+
+    try:
+        clip = ImageGrab.grabclipboard()
+    except Exception as e:
+        raise UserError(f"Couldn't read the clipboard: {e}") from e
+    if isinstance(clip, list):  # files were copied, not an image: save the first image file's pixels
+        imgs = [p for p in clip if str(p).lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"))]
+        if not imgs:
+            raise UserError("The clipboard holds files, not an image. Copy an image or take a screenshot first.")
+        clip = Image.open(imgs[0])
+    if clip is None:
+        raise UserError("There's no image on the clipboard. Take a screenshot (Win+Shift+S) or copy an image first.")
+    out = unique_path(folder / f"Pasted image {_stamp()}.png")
+    clip.save(out, "PNG", optimize=True)
+    return [out]
+
+
+def paste_text(folder: Path) -> list[Path]:
+    """Save the text on the clipboard as a .txt file in this folder."""
+    from .util import unique_path
+
+    text = _clipboard_text()
+    if not text:
+        raise UserError("There's no text on the clipboard.")
+    out = unique_path(folder / f"Pasted text {_stamp()}.txt")
+    out.write_text(text, encoding="utf-8")
+    return [out]
+
+
+def _clipboard_text() -> str:
+    if sys.platform == "win32":
+        import ctypes
+
+        CF_UNICODETEXT = 13
+        user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        user32.GetClipboardData.restype = ctypes.c_void_p
+        if not user32.OpenClipboard(None):
+            raise UserError("The clipboard is busy; try again.")
+        try:
+            h = user32.GetClipboardData(CF_UNICODETEXT)
+            if not h:
+                return ""
+            p = kernel32.GlobalLock(h)
+            try:
+                return ctypes.wstring_at(p) if p else ""
+            finally:
+                kernel32.GlobalUnlock(h)
+        finally:
+            user32.CloseClipboard()
+    try:
+        import tkinter
+
+        r = tkinter.Tk()
+        r.withdraw()
+        try:
+            return r.clipboard_get()
+        finally:
+            r.destroy()
+    except Exception:
+        return ""

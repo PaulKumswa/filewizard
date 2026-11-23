@@ -238,7 +238,12 @@ def _safe_console() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    import warnings
+
     _safe_console()
+    # pdf2docx still imports PyMuPDF under its old name ("fitz"); that warning means nothing to users
+    warnings.filterwarnings("ignore", message=".*fitz.*", category=FutureWarning)
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
     from . import __version__
 
     ap = argparse.ArgumentParser(prog="filewizard", description="Right-click file conversions and PDF tools.")

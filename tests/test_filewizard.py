@@ -387,7 +387,7 @@ def test_collector_unit(tmp_path, monkeypatch):
 
 def test_every_op_has_a_menu_home():
     for op in operations.OPERATIONS:
-        assert any(op.applies_to(e) for e in [*operations.ALL_EXTS, operations.DIR]), op.id
+        assert any(op.applies_to(e) for e in [*operations.ALL_EXTS, operations.DIR, operations.BACKGROUND]), op.id
         assert (op.per_file is None) != (op.batch is None), op.id
         assert not (op.param_names and op.ask is None), op.id
 

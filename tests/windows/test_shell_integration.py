@@ -261,3 +261,36 @@ def test_native_recent_actions_on_top(tmp_path):
         assert lines[1] == "---"
     finally:
         (app_dir() / "recent.txt").unlink()
+
+
+def _set_clipboard_text(text: str):
+    import ctypes
+
+    user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+    kernel32.GlobalAlloc.restype = ctypes.c_void_p
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+    data = (text + "\0").encode("utf-16-le")
+    h = kernel32.GlobalAlloc(0x0002, len(data))
+    ctypes.memmove(kernel32.GlobalLock(h), data, len(data))
+    kernel32.GlobalUnlock(h)
+    assert user32.OpenClipboard(None)
+    user32.EmptyClipboard()
+    user32.SetClipboardData(13, h)
+    user32.CloseClipboard()
+
+
+def test_folder_background_menu_and_paste_text(tmp_path):
+    cm = shell_probe.ContextMenu([str(tmp_path)], background=True)
+    wid, sub = cm.find(["FileWizard"])
+    assert sub, "FileWizard missing from the folder-background menu:\n" + "\n".join(cm.tree())
+    labels = [t for t, _, _ in cm.items(sub)]
+    print(labels)
+    assert any("Paste clipboard text" in t for t in labels)
+    _set_clipboard_text("hello from the clipboard")
+    wid, _ = cm.find(["FileWizard", "Paste clipboard text as .txt"])
+    cm.invoke(wid)
+    [out] = _wait_for(tmp_path, "Pasted text*.txt")
+    assert out.read_text(encoding="utf-8") == "hello from the clipboard"

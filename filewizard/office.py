@@ -167,9 +167,27 @@ def convert(src: Path, target: str, out: Path | None = None) -> list[Path]:
     )
 
 
+def office_apps() -> list[str]:
+    """Which Office apps are actually installed (registered for automation)."""
+    if sys.platform != "win32":
+        return []
+    import winreg
+
+    found = []
+    for progid, name in (("Word.Application", "Word"), ("Excel.Application", "Excel"),
+                         ("PowerPoint.Application", "PowerPoint")):
+        try:
+            winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, progid + r"\CLSID").Close()
+            found.append(name)
+        except OSError:
+            pass
+    return found
+
+
 def backend_report() -> str:
     parts = []
-    parts.append("Microsoft Office (COM): " + ("available" if _com_available() else "not available"))
+    apps = office_apps()
+    parts.append("Microsoft Office: " + (", ".join(apps) if apps and _com_available() else "not installed"))
     parts.append("LibreOffice: " + (find_soffice() or "not found"))
     return "\n".join(parts)
 

@@ -353,9 +353,20 @@ public:
     }
 
     // IShellExtInit: remember the selection
-    IFACEMETHODIMP Initialize(PCIDLIST_ABSOLUTE, IDataObject* data, HKEY) override {
+    IFACEMETHODIMP Initialize(PCIDLIST_ABSOLUTE folder, IDataObject* data, HKEY) override {
         m_files.clear();
-        if (!data) return E_INVALIDARG;
+        m_background = false;
+        if (!data) {
+            // right-click on empty space inside a folder: we get the folder, not a selection
+            wchar_t path[MAX_PATH * 4] = {};
+            if (folder && SHGetPathFromIDListEx(folder, path, (DWORD)(sizeof(path) / sizeof(path[0])), GPFIDL_DEFAULT)) {
+                m_files.push_back(path);
+                m_background = true;
+                Log(L"Initialize: background of " + std::wstring(path));
+                return S_OK;
+            }
+            return E_INVALIDARG;
+        }
         FORMATETC fe = {CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
         STGMEDIUM stm{};
         if (FAILED(data->GetData(&fe, &stm))) return E_INVALIDARG;
@@ -392,10 +403,11 @@ public:
 
             // which menu: the first file's type; others narrow it to shared actions
             std::vector<std::wstring> keys;
-            for (auto& f : m_files) keys.push_back(ExtKey(f, m));
+            if (m_background) keys.push_back(L"<background>");
+            else for (auto& f : m_files) keys.push_back(ExtKey(f, m));
             auto pick = [&](const std::wstring& k) -> const std::vector<Node>* {
                 auto it = m.types.find(k);
-                if (it == m.types.end() && k != L"<folder>") it = m.types.find(L"*");
+                if (it == m.types.end() && k != L"<folder>" && k != L"<background>") it = m.types.find(L"*");
                 return it == m.types.end() ? nullptr : &it->second;
             };
             const std::vector<Node>* base = pick(keys.empty() ? std::wstring() : keys[0]);
@@ -562,6 +574,7 @@ private:
     }
 
     LONG m_ref = 1;
+    bool m_background = false;  // menu for empty space inside a folder (m_files = that folder)
     std::vector<std::wstring> m_files;
     std::vector<std::wstring> m_ids;  // menu id offset -> op id
     std::wstring m_command;

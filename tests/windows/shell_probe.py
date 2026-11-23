@@ -80,8 +80,11 @@ def _check(hr: int, what: str):
 
 
 class ContextMenu:
-    def __init__(self, paths: list[str]):
+    def __init__(self, paths: list[str], background: bool = False):
         ole32.CoInitialize(None)
+        if background:  # menu for empty space inside the folder paths[0]
+            self._init_background(os.path.abspath(paths[0]))
+            return
         paths = [os.path.abspath(p) for p in paths]
         shell32.SHParseDisplayName.argtypes = [c_wchar_p, c_void_p, POINTER(c_void_p), c_uint, POINTER(c_uint)]
         shell32.SHBindToParent.argtypes = [c_void_p, POINTER(GUID), POINTER(c_void_p), POINTER(c_void_p)]
@@ -111,6 +114,28 @@ class ContextMenu:
         if qi(byref(IID_IContextMenu3), byref(self.cm3)) < 0:
             self.cm3 = None
         self._keep = (abs_pidls, folder, children)
+
+    def _init_background(self, folder_path: str):
+        shell32.SHParseDisplayName.argtypes = [c_wchar_p, c_void_p, POINTER(c_void_p), c_uint, POINTER(c_uint)]
+        shell32.SHGetDesktopFolder.argtypes = [POINTER(c_void_p)]
+        pidl = c_void_p()
+        _check(shell32.SHParseDisplayName(folder_path, None, byref(pidl), 0, None), "SHParseDisplayName")
+        desktop = c_void_p()
+        _check(shell32.SHGetDesktopFolder(byref(desktop)), "SHGetDesktopFolder")
+        bind = _method(desktop, 5, ctypes.c_long, c_void_p, c_void_p, POINTER(GUID), POINTER(c_void_p))
+        folder = c_void_p()
+        _check(bind(pidl, None, byref(IID_IShellFolder), byref(folder)), "BindToObject")
+        create_view = _method(folder, 8, ctypes.c_long, wintypes.HWND, POINTER(GUID), POINTER(c_void_p))
+        self.cm = c_void_p()
+        _check(create_view(None, byref(IID_IContextMenu), byref(self.cm)), "CreateViewObject(IContextMenu)")
+        self.hmenu = user32.CreatePopupMenu()
+        qcm = _method(self.cm, 3, ctypes.c_long, wintypes.HMENU, c_uint, c_uint, c_uint, c_uint)
+        _check(qcm(self.hmenu, 0, ID_FIRST, ID_LAST, CMF_NORMAL), "QueryContextMenu")
+        self.cm3 = c_void_p()
+        qi = _method(self.cm, 0, ctypes.c_long, POINTER(GUID), POINTER(c_void_p))
+        if qi(byref(IID_IContextMenu3), byref(self.cm3)) < 0:
+            self.cm3 = None
+        self._keep = (pidl, desktop, folder)
 
     def _hover(self, hsub, pos: int):
         """What Explorer does when the mouse rests on a cascade: lets the handler fill it."""

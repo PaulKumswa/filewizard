@@ -32,6 +32,7 @@ MARKDOWN_EXTS = {".md", ".markdown"}
 HTML_EXTS = {".html", ".htm"}
 DIR = "<folder>"  # pseudo-extension: right-click on a folder
 ANY_FILE = "*"    # pseudo-extension: any file at all (registered for unknown types too)
+BACKGROUND = "<background>"  # pseudo-extension: right-click on empty space inside a folder
 DOC_LIKE = PDF_EXTS | OFFICE_EXTS | EBOOK_EXTS | MARKDOWN_EXTS | HTML_EXTS
 EVERYTHING = IMAGE_EXTS | VIDEO_EXTS | AUDIO_EXTS | DOC_LIKE | DATA_EXTS | ARCHIVE_EXTS
 
@@ -61,9 +62,11 @@ class Operation:
         ext = ext.lower()
         if ext in self.exclude_exts:
             return False
-        return ext in self.exts or (ANY_FILE in self.exts and ext != DIR)
+        return ext in self.exts or (ANY_FILE in self.exts and ext not in (DIR, BACKGROUND))
 
     def applies_to_path(self, p: Path) -> bool:
+        if p.is_dir() and BACKGROUND in self.exts:
+            return True
         return self.applies_to(DIR if p.is_dir() else p.suffix)
 
     def label_for(self, ext: str) -> str:
@@ -473,6 +476,9 @@ def _build() -> list[Operation]:
     add("checksum", "Checksum (SHA-256)", {ANY_FILE}, "more", menu=MORE, batch=lambda ps, _: files.checksums(ps))
     add("palette", "All actions…", {ANY_FILE, DIR}, "palette",
         batch=lambda ps, _: ([], ""), help="Search every FileWizard action for the selection")
+    add("paste-image", "Paste clipboard image as file", {BACKGROUND}, "more",
+        per_file=lambda p, _: files.paste_image(p), help="Saves a screenshot (Win+Shift+S) as a PNG here")
+    add("paste-text", "Paste clipboard text as .txt", {BACKGROUND}, "more", per_file=lambda p, _: files.paste_text(p))
     add("folder-combine-pdf", "Combine PDFs/images inside into one PDF", {DIR}, "more", menu=MORE,
         per_file=lambda p, _: pdf.combine_any(_folder_docs(p)))
     return ops
@@ -518,7 +524,7 @@ def _finalize(ops: list[Operation]) -> list[Operation]:
 
 OPERATIONS: list[Operation] = _finalize(_build())
 BY_ID: dict[str, Operation] = {op.id: op for op in OPERATIONS}
-ALL_EXTS: list[str] = sorted({e for op in OPERATIONS for e in op.exts if e not in (DIR, ANY_FILE)})
+ALL_EXTS: list[str] = sorted({e for op in OPERATIONS for e in op.exts if e not in (DIR, ANY_FILE, BACKGROUND)})
 
 _ids = [op.id for op in OPERATIONS]
 assert len(_ids) == len(set(_ids)), "duplicate operation id"

@@ -52,6 +52,7 @@ class GUID(ctypes.Structure):
 IID_IShellFolder = GUID.of("000214E6-0000-0000-C000-000000000046")
 IID_IContextMenu = GUID.of("000214E4-0000-0000-C000-000000000046")
 IID_IContextMenu3 = GUID.of("BCFCE0A0-EC17-11D0-8D10-00A0C90F2719")
+IID_IContextMenu2 = GUID.of("000214F4-0000-0000-C000-000000000046")
 
 
 class MENUITEMINFOW(ctypes.Structure):
@@ -138,12 +139,21 @@ class ContextMenu:
         self._keep = (pidl, desktop, folder)
 
     def _hover(self, hsub, pos: int):
-        """What Explorer does when the mouse rests on a cascade: lets the handler fill it."""
-        if not self.cm3:
+        """What Explorer does when the mouse rests on a cascade: lets the handler fill it.
+        Uses IContextMenu3::HandleMenuMsg2, or IContextMenu2::HandleMenuMsg when that's all there is."""
+        if self.cm3:
+            handle2 = _method(self.cm3, 7, ctypes.c_long, c_uint, WPARAM, LPARAM, POINTER(LRESULT))
+            res = LRESULT()
+            handle2(WM_INITMENUPOPUP, hsub, pos & 0xFFFF, byref(res))
             return
-        handle2 = _method(self.cm3, 7, ctypes.c_long, c_uint, WPARAM, LPARAM, POINTER(LRESULT))
-        res = LRESULT()
-        handle2(WM_INITMENUPOPUP, hsub, pos & 0xFFFF, byref(res))
+        if getattr(self, "cm2", None) is None:
+            self.cm2 = c_void_p()
+            qi = _method(self.cm, 0, ctypes.c_long, POINTER(GUID), POINTER(c_void_p))
+            if qi(byref(IID_IContextMenu2), byref(self.cm2)) < 0:
+                self.cm2 = False
+        if self.cm2:
+            handle = _method(self.cm2, 6, ctypes.c_long, c_uint, WPARAM, LPARAM)
+            handle(WM_INITMENUPOPUP, hsub, pos & 0xFFFF)
 
     def items(self, hmenu=None):
         hmenu = hmenu or self.hmenu

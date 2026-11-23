@@ -287,7 +287,7 @@ def test_folder_background_menu_and_paste_text(tmp_path):
     wid, sub = cm.find(["FileWizard"])
     assert sub, "FileWizard missing from the folder-background menu:\n" + "\n".join(cm.tree())
     labels = [t for t, _, _ in cm.items(sub)]
-    print(labels)
+    print(labels, "cm3:", bool(cm.cm3), "cm2:", bool(getattr(cm, "cm2", None)))
     assert any("Paste clipboard text" in t for t in labels)
     _set_clipboard_text("hello from the clipboard")
     wid, _ = cm.find(["FileWizard", "Paste clipboard text as .txt"])

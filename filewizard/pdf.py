@@ -475,7 +475,6 @@ def compress_to(src: Path, max_bytes: int) -> list[Path]:
 
     from .util import report
 
-    pymupdf = _pymupdf()
     before = src.stat().st_size
     label = f"under {max_bytes / 1024 / 1024:g} MB" if max_bytes >= 1024 * 1024 else f"under {max_bytes // 1024} KB"
     if before <= max_bytes:
@@ -497,3 +496,46 @@ def compress_to(src: Path, max_bytes: int) -> list[Path]:
                 return [out]
     raise UserError(f"Couldn't get {src.name} under {label[6:]} (best effort was still too big). "
                     "It's probably mostly text/vector content, which images settings can't shrink.")
+
+
+def signature_png(sig: Path) -> bytes:
+    """Signature image as PNG with a transparent background (white paper scans become clean ink)."""
+    import io
+
+    from .images import open_image
+
+    img = open_image(sig).convert("RGBA")
+    px = img.load()
+    if img.getchannel("A").getextrema()[0] == 255:  # no transparency yet: knock out near-white
+        for y in range(img.height):
+            for x in range(img.width):
+                r, g, b, _ = px[x, y]
+                lum = (r + g + b) / 3
+                if lum > 225:
+                    px[x, y] = (r, g, b, 0)
+                elif lum > 170:  # soft edge
+                    px[x, y] = (r, g, b, int(255 * (225 - lum) / 55))
+    bbox = img.getchannel("A").getbbox()
+    if bbox:
+        img = img.crop(bbox)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return buf.getvalue()
+
+
+def sign(src: Path, sig: Path, page: int, x: float, y: float, width: float) -> list[Path]:
+    """Stamp the signature image on `page` (1-based; 0 = last) at (x, y) = its centre in points."""
+    pymupdf = _pymupdf()
+    data = signature_png(sig)
+    doc = _open(src)
+    idx = doc.page_count - 1 if page == 0 else page - 1
+    if not 0 <= idx < doc.page_count:
+        raise UserError(f"{src.name} has no page {page}.")
+    pg = doc[idx]
+    probe = pymupdf.open("png", data)
+    ratio = probe[0].rect.height / probe[0].rect.width
+    probe.close()
+    h = width * ratio
+    visible = pymupdf.Rect(x - width / 2, y - h / 2, x + width / 2, y + h / 2)
+    pg.insert_image(visible * pg.derotation_matrix, stream=data, rotate=pg.rotation, overlay=True)
+    return [_save(doc, sibling(src, "signed", ".pdf"))]

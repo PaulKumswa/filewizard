@@ -523,3 +523,25 @@ def test_pdf_under_size(tmp_path):
     with pymupdf.open(out) as o:
         assert o.page_count == 3
     assert run("pdf-under-custom", out, "-p", "size=5 MB") == 1  # already under: friendly message
+
+
+def test_pdf_sign(tmp_path):
+    from PIL import ImageDraw
+
+    sig = tmp_path / "sig.jpg"  # photo of ink on white paper
+    im = Image.new("RGB", (400, 150), "white")
+    ImageDraw.Draw(im).line([(20, 120), (120, 30), (220, 110), (380, 40)], fill=(10, 20, 120), width=8)
+    im.save(sig)
+    doc = _pdf(tmp_path / "contract.pdf", 2)
+    assert run("pdf-sign", doc, "-p", f"sig={sig}", "-p", "x=400", "-p", "y=700", "-p", "page=0",
+               "-p", "width=160") == 0
+    with pymupdf.open(tmp_path / "contract (signed).pdf") as d:
+        imgs = d[-1].get_images()
+        assert len(imgs) == 1 and not d[0].get_images()
+        r = d[-1].get_image_rects(imgs[0][0])[0]
+        assert abs((r.x0 + r.x1) / 2 - 400) < 2 and abs(r.width - 160) < 2
+    from filewizard.pdf import signature_png
+    import io
+
+    png = Image.open(io.BytesIO(signature_png(sig)))
+    assert png.mode == "RGBA" and png.getpixel((0, 0))[3] == 0  # white became transparent

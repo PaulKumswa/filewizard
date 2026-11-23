@@ -693,3 +693,105 @@ def pick_pages(pdf: Path, verb: str, max_pages: int = 400) -> str | None:
     _center(root)
     root.mainloop()
     return result["v"]
+
+
+# ---------- place a signature ----------
+
+def place_signature(pdf: Path, sig_png: bytes) -> dict | None:
+    """Show a page; click to place the signature, wheel to resize, ◀ ▶ to change page."""
+    import tkinter as tk
+    from tkinter import ttk
+
+    import pymupdf
+
+    doc = pymupdf.open(pdf)
+    state = {"page": doc.page_count - 1, "x": None, "y": None, "w": 0.28}  # w: fraction of page width
+    root = _root(f"{APP_NAME} — Sign {pdf.name}", hidden=False)
+    frm = ttk.Frame(root, padding=10)
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text="Click where the signature goes. Scroll to resize.",
+              font=("Segoe UI", 11, "bold")).pack(anchor="w")
+    canvas = tk.Canvas(frm, background="#cfd3da", highlightthickness=0, cursor="crosshair")
+    canvas.pack(fill="both", expand=True, pady=8)
+    sig_doc = pymupdf.open("png", sig_png)
+    sig_ratio = sig_doc[0].rect.height / sig_doc[0].rect.width
+    sig_doc.close()
+    view = {"scale": 1.0, "img": None, "sig": None, "sig_w": 0}
+    max_h = min(760, root.winfo_screenheight() - 220)
+
+    def render():
+        page = doc[state["page"]]
+        view["scale"] = max_h / page.rect.height
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(view["scale"], view["scale"]), alpha=False)
+        view["img"] = tk.PhotoImage(data=pix.tobytes("ppm"))
+        canvas.configure(width=pix.width, height=pix.height)
+        canvas.delete("all")
+        canvas.create_image(0, 0, image=view["img"], anchor="nw")
+        pagelbl.configure(text=f"Page {state['page'] + 1} of {doc.page_count}")
+        draw_sig()
+
+    def draw_sig():
+        canvas.delete("sig")
+        if state["x"] is None:
+            return
+        page = doc[state["page"]]
+        w_px = max(20, int(page.rect.width * state["w"] * view["scale"]))
+        if view["sig_w"] != w_px:
+            from PIL import Image
+            import io
+
+            im = Image.open(io.BytesIO(sig_png)).convert("RGBA")
+            im = im.resize((w_px, max(1, int(w_px * sig_ratio))))
+            buf = io.BytesIO()
+            im.save(buf, "PNG")
+            view["sig"] = tk.PhotoImage(data=buf.getvalue())
+            view["sig_w"] = w_px
+        canvas.create_image(state["x"], state["y"], image=view["sig"], tags="sig")
+        h_px = int(w_px * sig_ratio)
+        canvas.create_rectangle(state["x"] - w_px / 2, state["y"] - h_px / 2, state["x"] + w_px / 2,
+                                state["y"] + h_px / 2, outline=ACCENT, dash=(3, 2), tags="sig")
+
+    def click(e):
+        state["x"], state["y"] = e.x, e.y
+        draw_sig()
+
+    def wheel(e):
+        delta = e.delta if e.delta else (120 if e.num == 4 else -120)
+        state["w"] = max(0.05, min(0.9, state["w"] * (1.1 if delta > 0 else 0.9)))
+        draw_sig()
+
+    def turn(d):
+        state["page"] = max(0, min(doc.page_count - 1, state["page"] + d))
+        render()
+
+    canvas.bind("<Button-1>", click)
+    canvas.bind("<B1-Motion>", click)
+    canvas.bind("<MouseWheel>", wheel)
+    canvas.bind("<Button-4>", wheel)
+    canvas.bind("<Button-5>", wheel)
+    foot = ttk.Frame(frm)
+    foot.pack(fill="x")
+    ttk.Button(foot, text="◀", width=3, command=lambda: turn(-1)).pack(side="left")
+    pagelbl = ttk.Label(foot, text="")
+    pagelbl.pack(side="left", padx=6)
+    ttk.Button(foot, text="▶", width=3, command=lambda: turn(1)).pack(side="left")
+    result: dict = {"v": None}
+
+    def ok(_=None):
+        if state["x"] is None:
+            return
+        page = doc[state["page"]]
+        s = view["scale"]
+        result["v"] = {"page": str(state["page"] + 1), "x": f"{state['x'] / s:.1f}", "y": f"{state['y'] / s:.1f}",
+                       "width": f"{page.rect.width * state['w']:.1f}"}
+        root.destroy()
+
+    ttk.Button(foot, text="Cancel", command=root.destroy).pack(side="right")
+    ttk.Button(foot, text="Sign", command=ok).pack(side="right", padx=6)
+    root.bind("<Return>", ok)
+    root.bind("<Escape>", lambda e: root.destroy())
+    render()
+    _center(root)
+    root.mainloop()
+    doc.close()
+    return result["v"]

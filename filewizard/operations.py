@@ -162,6 +162,27 @@ def _ask_rename(paths):
             return {"pattern": v}
 
 
+def _ask_signature(paths):
+    from tkinter import filedialog
+
+    from .pdf import signature_png
+    from .settings import load, save
+
+    last = load().get("signature")
+    sig = Path(last) if last and Path(last).exists() else None
+    if sig is None or not ui.confirm(f"Use your saved signature?\n\n{sig.name}\n\n(Cancel to choose another image.)"):
+        root = ui._root()
+        picked = filedialog.askopenfilename(parent=root, title="Choose your signature image (PNG/JPG photo of it)",
+                                            filetypes=[("Images", "*.png *.jpg *.jpeg *.webp *.heic"), ("All", "*.*")])
+        root.destroy()
+        if not picked:
+            return None
+        sig = Path(picked)
+        save({"signature": str(sig)})
+    placed = ui.place_signature(paths[0], signature_png(sig))
+    return None if placed is None else {**placed, "sig": str(sig)}
+
+
 def _ordered(paths: list[Path], params: Params) -> list[Path]:
     if "__order__" in params:
         return [Path(p) for p in params["__order__"].split("\n")]
@@ -374,6 +395,11 @@ def _build() -> list[Operation]:
     add("pdf-watermark", "Add watermark…", PDF_EXTS, "edit", menu=ED,
         per_file=lambda p, prm: pdf.watermark(p, prm["text"]),
         ask=_ask_text("text", "Watermark text:", "CONFIDENTIAL"), param_names=("text",))
+    add("pdf-sign", "Sign…", PDF_EXTS, "edit", menu=ED,
+        per_file=lambda p, prm: pdf.sign(p, Path(prm["sig"]), int(prm.get("page", "0")), float(prm["x"]),
+                                         float(prm["y"]), float(prm.get("width", "150"))),
+        ask=_ask_signature, param_names=("sig", "x", "y"),
+        help="Place an image of your signature on a page")
     add("pdf-gray", "Black & white", PDF_EXTS, "edit", menu=ED, per_file=lambda p, _: pdf.grayscale(p))
     add("pdf-flatten", "Flatten forms & comments", PDF_EXTS, "edit", menu=ED, per_file=lambda p, _: pdf.flatten(p))
 

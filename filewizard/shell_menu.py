@@ -449,9 +449,9 @@ def install(mode: str = "auto") -> str:
                     winreg.SetValueEx(k, name, 0, types[typ], val)
         _refresh_explorer()
         print(f"Installed the {APP_NAME} menu for {len(ALL_EXTS)} file types (classic mode: "
-              "Windows limits these menus to 16 entries; 'All actions…' has the rest).")
+              "Windows limits these menus to 16 entries; 'All actions...' has the rest).")
         used = "classic"
-    print("Right-click a file → FileWizard. On Windows 11 it's under 'Show more options' (or Shift+right-click).")
+    print("Right-click a file, then FileWizard. On Windows 11 it's under 'Show more options' (or Shift+right-click).")
     return used
 
 

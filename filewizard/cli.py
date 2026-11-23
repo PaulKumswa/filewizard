@@ -213,7 +213,18 @@ def cmd_doctor(args) -> int:
     return 0
 
 
+def _safe_console() -> None:
+    """Windows consoles often use cp1252; never crash on a filename or symbol it can't show."""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _safe_console()
     ap = argparse.ArgumentParser(prog="filewizard", description="Right-click file conversions and PDF tools.")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

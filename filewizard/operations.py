@@ -161,6 +161,17 @@ def _ordered(paths: list[Path], params: Params) -> list[Path]:
     return sorted(paths, key=natural_key)
 
 
+def _kb_value(v: str) -> float:
+    """'300 KB' / '2 MB' / '750' (KB) -> bytes."""
+    t = v.strip().lower().replace(" ", "")
+    try:
+        if t.endswith("mb"):
+            return float(t[:-2]) * 1024 * 1024
+        return float(t.removesuffix("kb").removesuffix("k")) * 1024
+    except ValueError as e:
+        raise UserError(f"'{v}' isn't a size like 300 KB or 2 MB.") from e
+
+
 def _mb(v: str) -> float:
     try:
         return float(v.lower().replace("mb", "").strip())
@@ -266,7 +277,14 @@ def _build() -> list[Operation]:
 
     # ===== compress =====
     add("pdf-compress", "Compress", PDF_EXTS, "edit", per_file=lambda p, _: pdf.compress(p))
-    add("img-compress", "Compress", IMG_IN, "edit", per_file=lambda p, _: images.compress(p))
+    IC = ("Compress",)
+    add("img-compress", "Smaller file, same look", IMG_IN, "edit", menu=IC, per_file=lambda p, _: images.compress(p))
+    for kb, why in ((1024, "1 MB"), (500, "500 KB"), (200, "200 KB (upload forms)")):
+        add(f"img-under-{kb}kb", f"Under {why}", IMG_IN, "edit", menu=IC,
+            per_file=lambda p, _, k=kb: images.compress_to(p, k * 1024))
+    add("img-under-custom", "Under a size I choose…", IMG_IN, "edit", menu=IC,
+        per_file=lambda p, prm: images.compress_to(p, int(_kb_value(prm["size"]))),
+        ask=_ask_text("size", "Make the image smaller than (e.g. 300 KB or 2 MB):", "500 KB"), param_names=("size",))
     add("aud-compress", "Compress", AUDIO_EXTS, "edit", per_file=lambda p, _: media.compress_audio(p))
     VC = ("Compress",)
     add("vid-compress", "Smaller file, same look", VIDEO_EXTS, "edit", menu=VC,
@@ -371,6 +389,7 @@ def _build() -> list[Operation]:
     add("rename", "Rename selected…", {ANY_FILE}, "more", menu=MORE,
         batch=lambda ps, prm: files.rename(sorted(ps, key=natural_key), prm["pattern"]), ask=_ask_rename,
         param_names=("pattern",))
+    add("details", "Show details", {ANY_FILE}, "more", menu=MORE, batch=lambda ps, _: files.details(ps))
     add("checksum", "Checksum (SHA-256)", {ANY_FILE}, "more", menu=MORE, batch=lambda ps, _: files.checksums(ps))
     add("palette", "All actions…", {ANY_FILE, DIR}, "palette",
         batch=lambda ps, _: ([], ""), help="Search every FileWizard action for the selection")
@@ -401,6 +420,7 @@ SECONDARY = {
     "vid-rotate-180", "vid-rotate-hflip", "vid-rotate-vflip", "media-speed-1_25", "media-speed-1_5",
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
+    "img-under-1024kb", "img-under-custom", "details",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MULTI = {"combine-pdf", "media-join", "img-contact-sheet"}

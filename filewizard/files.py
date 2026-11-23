@@ -87,3 +87,69 @@ def rename(files: list[Path], pattern: str) -> list[Path]:
         tmp.rename(dst)
         out.append(dst)
     return out
+
+
+def details(files: list[Path]) -> tuple[list[Path], str]:
+    """'Show details': the useful facts about each file in one copyable window."""
+    from .util import human_size
+
+    blocks = []
+    for f in files:
+        st = f.stat()
+        lines = [f.name, f"  Size: {human_size(st.st_size) if f.is_file() else '(folder)'}",
+                 f"  Modified: {datetime.fromtimestamp(st.st_mtime):%Y-%m-%d %H:%M}"]
+        ext = f.suffix.lower()
+        extra = ""
+        try:
+            from .images import IMAGE_EXTS, describe
+            from .media import AUDIO_EXTS, VIDEO_EXTS
+
+            if ext in IMAGE_EXTS:
+                extra = describe(f)
+            elif ext in VIDEO_EXTS | AUDIO_EXTS:
+                extra = _media_details(f)
+            elif ext in (".pdf", ".epub", ".xps", ".mobi"):
+                extra = _pdf_details(f)
+        except Exception as e:  # details are best-effort
+            extra = f"(couldn't read details: {e})"
+        lines += ["  " + ln for ln in extra.splitlines() if ln]
+        blocks.append("\n".join(lines))
+    return [], "\n\n".join(blocks)
+
+
+def _media_details(f: Path) -> str:
+    from .media import probe
+
+    i = probe(f)
+    out = [f"Duration: {int(i.duration // 3600):d}:{int(i.duration % 3600 // 60):02d}:{i.duration % 60:05.2f}"]
+    if i.vcodec:
+        out.append(f"Video: {i.width} × {i.height}, {i.vcodec}" + (f", {i.fps:g} fps" if i.fps else ""))
+    if i.acodec:
+        out.append(f"Audio: {i.acodec}")
+    if i.duration:
+        out.append(f"Average bitrate: {f.stat().st_size * 8 / i.duration / 1000:.0f} kbps")
+    return "\n".join(out)
+
+
+def _pdf_details(f: Path) -> str:
+    import pymupdf
+
+    d = pymupdf.open(f)
+    try:
+        out = [f"Pages: {d.page_count}"]
+        if d.needs_pass:
+            out.append("Password-protected")
+            return "\n".join(out)
+        if d.page_count:
+            r = d[0].rect
+            out.append(f"Page size: {r.width / 72:.2f} × {r.height / 72:.2f} in")
+        meta = {k: v for k, v in (d.metadata or {}).items() if v and k in ("title", "author", "creator", "producer")}
+        out += [f"{k.title()}: {v}" for k, v in meta.items()]
+        if d.is_pdf:
+            has_text = any(p.get_text().strip() for p in list(d)[:5])
+            out.append("Text: selectable" if has_text else "Text: none (scanned? try 'Make searchable')")
+            if d.metadata.get("encryption"):
+                out.append(f"Encryption: {d.metadata['encryption']}")
+        return "\n".join(out)
+    finally:
+        d.close()

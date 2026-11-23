@@ -366,3 +366,90 @@ def contact_sheet(images: list[Path], cols: int = 4, thumb: int = 400) -> list[P
     out = sibling(images[0], "contact sheet", ".jpg")
     sheet.save(out, "JPEG", quality=88)
     return [out]
+
+
+def compress_to(src: Path, max_bytes: int) -> list[Path]:
+    """Smallest visible change that gets under a size limit (upload forms: 'max 500 KB').
+
+    Binary-searches JPEG quality; only if quality 40 is still too big does it scale down."""
+    img = _flatten(open_image(src))
+    if src.stat().st_size <= max_bytes and src.suffix.lower() in (".jpg", ".jpeg"):
+        raise UserError(f"{src.name} is already under {_kb(max_bytes)}.")
+
+    def encode(im, q):
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=q, optimize=True, progressive=True)
+        return buf.getvalue()
+
+    best = None
+    scale = 1.0
+    from PIL import Image
+
+    for _ in range(12):
+        im = img if scale == 1.0 else img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))),
+                                                  Image.LANCZOS)
+        lo, hi = 40, 92
+        while lo <= hi:
+            q = (lo + hi) // 2
+            data = encode(im, q)
+            if len(data) <= max_bytes:
+                best, lo = data, q + 1
+            else:
+                hi = q - 1
+        if best is not None:
+            break
+        scale *= 0.8
+    if best is None:
+        raise UserError(f"Couldn't get {src.name} under {_kb(max_bytes)}.")
+    out = sibling(src, f"under {_kb(max_bytes)}", ".jpg")
+    out.write_bytes(best)
+    return [out]
+
+
+def _kb(n: int) -> str:
+    return f"{n / 1024 / 1024:g} MB" if n >= 1024 * 1024 else f"{n // 1024} KB"
+
+
+def describe(path: Path) -> str:
+    """Human-readable details for the 'Show details' action."""
+    img = None
+    lines = []
+    try:
+        from PIL import Image
+
+        if path.suffix.lower() in RAW_EXTS | VECTOR_EXTS:
+            img = open_image(path)
+            fmt = path.suffix[1:].upper()
+        else:
+            if path.suffix.lower() in (".heic", ".heif", ".avif"):
+                _register_heif()
+            img = Image.open(path)
+            fmt = img.format
+        lines.append(f"Image: {img.width} × {img.height} px, {fmt}, {img.mode}")
+        if getattr(img, "n_frames", 1) > 1:
+            lines.append(f"Frames: {img.n_frames} (animated)")
+        dpi = img.info.get("dpi")
+        if dpi:
+            lines.append(f"DPI: {round(dpi[0])}")
+        exif = img.getexif() if hasattr(img, "getexif") else {}
+        tags = {0x010F: "Camera make", 0x0110: "Camera model", 0x0132: "Date", 0x0131: "Software"}
+        for tag, name in tags.items():
+            if exif.get(tag):
+                lines.append(f"{name}: {exif[tag]}")
+        sub = exif.get_ifd(0x8769) if hasattr(exif, "get_ifd") else {}
+        if sub.get(0x9003):
+            lines.append(f"Taken: {sub[0x9003]}")
+        gps = exif.get_ifd(0x8825) if hasattr(exif, "get_ifd") else {}
+        if gps:
+            try:
+                def deg(v, ref):
+                    d = float(v[0]) + float(v[1]) / 60 + float(v[2]) / 3600
+                    return -d if ref in ("S", "W") else d
+
+                lat, lon = deg(gps[2], gps[1]), deg(gps[4], gps[3])
+                lines.append(f"⚠ GPS location: {lat:.5f}, {lon:.5f}  (use 'Remove location/camera info' before sharing)")
+            except Exception:
+                lines.append("⚠ Contains GPS location data")
+    except Exception as e:
+        lines.append(f"(couldn't read image details: {e})")
+    return "\n".join(lines)

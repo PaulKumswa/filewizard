@@ -472,3 +472,13 @@ def test_run_accepts_list_file(tmp_path):
     lst.write_text(f"{a}\n{b}\n", encoding="utf-8")
     assert main(["run", "--native", "combine-pdf", "--list", str(lst)]) == 0
     assert (tmp_path / "a (merged).pdf").exists() and not lst.exists()
+
+
+def test_cli_survives_cp1252_console(tmp_path):
+    """Regression: printing '→' or non-Latin filenames crashed on Windows cp1252 consoles."""
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252", "FILEWIZARD_NONINTERACTIVE": "1"}
+    r = subprocess.run([sys.executable, "-m", "filewizard", "list"], cwd=REPO, env=env,
+                       capture_output=True)
+    assert r.returncode == 0, r.stderr.decode(errors="replace")
+    r = subprocess.run([sys.executable, "-m", "filewizard", "menu", ".pdf"], cwd=REPO, env=env, capture_output=True)
+    assert r.returncode == 0 and b"Merge" in r.stdout

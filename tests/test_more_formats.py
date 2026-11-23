@@ -448,3 +448,26 @@ def test_folder_combine(tmp_path):
     assert run("folder-combine-pdf", folder) == 0
     with pymupdf.open(folder / "page0 (combined).pdf") as d:
         assert d.page_count == 3
+
+
+def test_image_under_size(tmp_path):
+    src = tmp_path / "big.png"
+    Image.effect_noise((2400, 1600), 50).convert("RGB").save(src)
+    assert run("img-under-200kb", src) == 0
+    out = tmp_path / "big (under 200 KB).jpg"
+    assert out.stat().st_size <= 200 * 1024
+    assert run("img-under-custom", src, "-p", "size=1 MB") == 0
+    assert (tmp_path / "big (under 1 MB).jpg").stat().st_size <= 1024 * 1024
+
+
+def test_show_details(tmp_path, video, capsys):
+    img = tmp_path / "gps.jpg"
+    exif = Image.Exif()
+    exif[0x010F] = "Canon"
+    gps = {1: "N", 2: (42.0, 55.0, 0.0), 3: "W", 4: (85.0, 35.0, 0.0)}
+    exif[0x8825] = gps
+    Image.new("RGB", (64, 32)).save(img, exif=exif.tobytes())
+    assert run("details", img, video) == 0
+    out = capsys.readouterr().out
+    assert "64 × 32" in out and "Canon" in out and "GPS location" in out
+    assert "320 × 240" in out and "h264" in out

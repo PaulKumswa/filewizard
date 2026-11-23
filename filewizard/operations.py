@@ -24,17 +24,18 @@ from .archives import ARCHIVE_EXTS  # noqa: E402
 from .docs import DATA_EXTS, EBOOK_EXTS  # noqa: E402
 from .images import IMAGE_EXTS, RAW_EXTS, VECTOR_EXTS  # noqa: E402
 from .media import AUDIO_EXTS, VIDEO_EXTS  # noqa: E402
-from .office import SHEET_EXTS, SLIDE_EXTS, WORD_EXTS  # noqa: E402
+from .office import DRAW_EXTS, SHEET_EXTS, SLIDE_EXTS, WORD_EXTS  # noqa: E402
 
 PDF_EXTS = {".pdf"}
-OFFICE_EXTS = WORD_EXTS | SLIDE_EXTS | SHEET_EXTS
+OFFICE_EXTS = WORD_EXTS | SLIDE_EXTS | SHEET_EXTS | DRAW_EXTS
+FONT_EXTS = {".ttf", ".otf", ".ttc", ".woff", ".woff2"}
 MARKDOWN_EXTS = {".md", ".markdown"}
 HTML_EXTS = {".html", ".htm"}
 DIR = "<folder>"  # pseudo-extension: right-click on a folder
 ANY_FILE = "*"    # pseudo-extension: any file at all (registered for unknown types too)
 BACKGROUND = "<background>"  # pseudo-extension: right-click on empty space inside a folder
 DOC_LIKE = PDF_EXTS | OFFICE_EXTS | EBOOK_EXTS | MARKDOWN_EXTS | HTML_EXTS
-EVERYTHING = IMAGE_EXTS | VIDEO_EXTS | AUDIO_EXTS | DOC_LIKE | DATA_EXTS | ARCHIVE_EXTS
+EVERYTHING = IMAGE_EXTS | VIDEO_EXTS | AUDIO_EXTS | DOC_LIKE | DATA_EXTS | ARCHIVE_EXTS | FONT_EXTS
 
 Params = dict[str, str]
 Result = list[Path] | tuple[list[Path], str]
@@ -328,6 +329,7 @@ def _build() -> list[Operation]:
     add("media-join", "Join selected…", VIDEO_EXTS | AUDIO_EXTS, "combine",
         batch=lambda ps, prm: media.merge(_ordered(ps, prm)),
         ask=_ask_order("Join files", add_types=VIDEO_EXTS | AUDIO_EXTS))
+    add("font-sample", "Font sample sheet (PNG)", FONT_EXTS, "convert", per_file=lambda p, _: images.font_sample(p))
     add("img-scan-pdf", "Combine into a searchable PDF (OCR)", IMG_IN - VECTOR_EXTS, "combine",
         batch=lambda ps, prm: pdf.scan_to_searchable(_ordered(ps, prm)), ask=_ask_order("Searchable PDF"),
         help="Photos of documents or receipts -> one PDF you can search and copy text from")

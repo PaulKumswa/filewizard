@@ -18,9 +18,11 @@ from pathlib import Path
 from .util import UserError, human_size, report, sibling, unique_dir
 
 VIDEO_EXTS = {".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi", ".wmv", ".flv", ".mpg", ".mpeg",
-              ".3gp", ".ts", ".mts", ".m2ts", ".ogv", ".vob", ".f4v", ".asf"}
+              ".3gp", ".ts", ".mts", ".m2ts", ".ogv", ".vob", ".f4v", ".asf", ".divx", ".rm", ".rmvb",
+              ".mxf", ".dv", ".m2v", ".3g2", ".mjpeg", ".y4m", ".qt"}
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wma", ".aiff",
-              ".aif", ".m4b", ".amr", ".ac3", ".mka", ".alac", ".ape", ".wv"}
+              ".aif", ".m4b", ".amr", ".ac3", ".mka", ".alac", ".ape", ".wv", ".caf", ".au", ".mp2",
+              ".ra", ".weba", ".spx", ".tta", ".mpc", ".dts", ".eac3", ".m4r"}
 
 _NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 

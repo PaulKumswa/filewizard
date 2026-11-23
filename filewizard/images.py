@@ -631,3 +631,30 @@ def white_to_transparent(src: Path, tolerance: int = 28) -> list[Path]:
     out = sibling(src, "transparent", ".png")
     img.save(out, "PNG", optimize=True)
     return [out]
+
+
+def font_sample(src: Path) -> list[Path]:
+    """Preview a font file without installing it: alphabet, digits and sample sizes."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    try:
+        ImageFont.truetype(str(src), 24)
+    except OSError as e:
+        raise UserError(f"Couldn't read {src.name} as a font ({e}).") from e
+    W, pad = 1600, 40
+    lines = [(28, src.stem), (40, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"), (40, "abcdefghijklmnopqrstuvwxyz"),
+             (40, "0123456789 !?&@#%()[]{}.,;:"), (72, "The quick brown fox"), (54, "jumps over the lazy dog."),
+             (36, "Pack my box with five dozen liquor jugs."), (20, "Small text: sphinx of black quartz, judge my vow.")]
+    H = pad * 2 + sum(int(size * 1.45) for size, _ in lines) + 40
+    img = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(img)
+    y = pad
+    for i, (size, text) in enumerate(lines):
+        font = ImageFont.truetype(str(src), size)
+        d.text((pad, y), text, font=font, fill=(110, 110, 110) if i == 0 else (20, 20, 20))
+        y += int(size * 1.45)
+        if i == 0:
+            d.line((pad, y - 6, W - pad, y - 6), fill=(220, 220, 220), width=2)
+    out = sibling(src, "sample", ".png")
+    img.save(out, "PNG", optimize=True)
+    return [out]

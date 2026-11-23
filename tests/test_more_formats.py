@@ -827,3 +827,22 @@ def test_photos_to_searchable_pdf(tmp_path):
     with pymupdf.open(tmp_path / "photo0 (searchable).pdf") as d:
         assert d.page_count == 2 and "Invoice" in d[1].get_text()
     assert not list(tmp_path.glob("*scan tmp*"))
+
+
+def test_font_sample(tmp_path):
+    import glob
+
+    fonts = glob.glob("/usr/share/fonts/**/*.ttf", recursive=True) + glob.glob("C:/Windows/Fonts/arial.ttf")
+    if not fonts:
+        pytest.skip("no TTF font on this machine")
+    src = tmp_path / "MyFont.ttf"
+    shutil.copy(fonts[0], src)
+    assert run("font-sample", src) == 0
+    assert Image.open(tmp_path / "MyFont (sample).png").size[0] == 1600
+
+
+def test_more_containers_registered():
+    from filewizard.operations import for_ext
+
+    for ext in (".rmvb", ".divx", ".caf", ".pages", ".numbers", ".key", ".vsdx", ".otf"):
+        assert for_ext(ext), ext

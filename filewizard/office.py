@@ -16,9 +16,12 @@ from pathlib import Path
 
 from .util import UserError, sibling
 
-WORD_EXTS = {".doc", ".docx", ".docm", ".rtf", ".odt", ".txt"}
-SLIDE_EXTS = {".ppt", ".pptx", ".pptm", ".odp"}
-SHEET_EXTS = {".xls", ".xlsx", ".xlsm", ".ods"}
+WORD_EXTS = {".doc", ".docx", ".docm", ".rtf", ".odt", ".txt", ".pages", ".wpd", ".wps", ".dot", ".dotx"}
+SLIDE_EXTS = {".ppt", ".pptx", ".pptm", ".odp", ".key", ".pps", ".ppsx"}
+SHEET_EXTS = {".xls", ".xlsx", ".xlsm", ".ods", ".numbers", ".xlsb"}
+DRAW_EXTS = {".pub", ".vsd", ".vsdx", ".odg"}  # Publisher, Visio, OpenDocument drawings
+# Formats Microsoft Office can't open (Apple iWork, WordPerfect, drawings): LibreOffice only.
+LO_ONLY_EXTS = {".pages", ".numbers", ".key", ".wpd", ".odg", ".vsd", ".vsdx"}
 
 # Office SaveAs format codes
 _WD_PDF, _WD_DOCX = 17, 16
@@ -197,7 +200,7 @@ def _via_libreoffice(src: Path, out: Path, target: str) -> bool:
 
 def convert(src: Path, target: str, out: Path | None = None) -> list[Path]:
     out = out or sibling(src, None, target)
-    if _com_available():
+    if _com_available() and src.suffix.lower() not in LO_ONLY_EXTS and src.suffix.lower() not in DRAW_EXTS:
         try:
             if _via_msoffice(src, out, target):
                 return [out]

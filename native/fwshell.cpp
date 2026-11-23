@@ -412,8 +412,9 @@ public:
                 if (it == m.types.end() && k != L"<folder>" && k != L"<background>") it = m.types.find(L"*");
                 return it == m.types.end() ? nullptr : &it->second;
             };
-            const std::vector<Node>* base = pick(keys.empty() ? std::wstring() : keys[0]);
-            Log(L"QueryContextMenu: first key=" + (keys.empty() ? std::wstring() : keys[0]) + (base ? L" found" : L" NOT found"));
+            if (keys.empty()) return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);  // never index an empty selection
+            const std::vector<Node>* base = pick(keys[0]);
+            Log(L"QueryContextMenu: first key=" + keys[0] + (base ? L" found" : L" NOT found"));
             if (!base) return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
             std::vector<std::unordered_set<std::wstring>> others;
             std::unordered_set<std::wstring> seen{keys[0]};

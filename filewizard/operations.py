@@ -380,6 +380,8 @@ def _build() -> list[Operation]:
     for f, name in ((0.5, "0.5× (slow motion)"), (1.25, "1.25×"), (1.5, "1.5×"), (2.0, "2×")):
         add(f"media-speed-{str(f).replace('.', '_')}", name, VIDEO_EXTS | AUDIO_EXTS, "edit", menu=SP,
             per_file=lambda p, _, f=f: media.speed(p, f))
+    add("media-ringtone", "Make iPhone ringtone (.m4r)", VIDEO_EXTS | AUDIO_EXTS, "edit",
+        per_file=lambda p, _: media.ringtone(p))
     add("media-normalize", "Fix volume (normalize loudness)", VIDEO_EXTS | AUDIO_EXTS, "edit",
         per_file=lambda p, _: media.normalize(p))
     add("vid-subs", "Burn in subtitles (.srt)", VIDEO_EXTS, "edit", per_file=lambda p, _: media.burn_subtitles(p),
@@ -478,7 +480,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MULTI = {"combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h"}

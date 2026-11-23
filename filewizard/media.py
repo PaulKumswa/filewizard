@@ -518,3 +518,17 @@ def extract_subtitles(src: Path) -> list[Path]:
     out = _out(src, None, ".srt")
     run(["-i", str(src), "-map", "0:s:0", str(out)])
     return [out]
+
+
+def ringtone(src: Path, seconds: float = 30.0) -> list[Path]:
+    """iPhone ringtone (.m4r): first 30 s, AAC, with a short fade-out."""
+    info = probe(src)
+    if not info.acodec:
+        raise UserError(f"{src.name} has no audio track.")
+    length = min(seconds, info.duration or seconds)
+    out = _out(src, "ringtone", ".m4r")
+    tmp = _tmp_for(out).with_suffix(".m4a")  # ffmpeg picks the ipod muxer from .m4a
+    fade = f"afade=t=out:st={max(0.0, length - 2):.2f}:d=2"
+    run(["-i", str(src), "-t", f"{length:.2f}", "-vn", "-af", fade, "-c:a", "aac", "-b:a", "192k",
+         "-f", "ipod", str(tmp)], length, f"Making ringtone from {src.name}")
+    return [_finish(out, tmp)]

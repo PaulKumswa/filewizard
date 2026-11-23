@@ -572,3 +572,9 @@ def test_stitch(tmp_path):
     assert Image.open(tmp_path / "s1 (stitched).png").size == (400, 400)  # second scaled to width 400
     assert run("img-stitch-h", a, b) == 0
     assert Image.open(tmp_path / "s1 (stitched) (2).png").size == (800, 200)
+
+
+def test_ringtone(song):
+    assert run("media-ringtone", song) == 0
+    out = song.parent / "song (ringtone).m4r"
+    assert out.exists() and media.probe(out).acodec == "aac"

@@ -502,6 +502,13 @@ def notify_done(outputs: list[Path], summary: str = "", undoable: bool = True) -
     inner.pack(fill="both", expand=True, padx=(4, 0))
     first = outputs[0]
     title = "✓  Done" if len(outputs) == 1 else f"✓  Done — {len(outputs)} files"
+    from .util import fallback_dir
+
+    try:
+        if not summary and first.parent.resolve() == fallback_dir().resolve():
+            summary = "That folder is read-only, so it's in Downloads\\FileWizard."
+    except OSError:
+        pass
     tk.Label(inner, text=title, bg=t["field"], fg=t["accent"], font=("Segoe UI", 11, "bold")).pack(anchor="w")
     name = first.name if len(outputs) == 1 else f"{first.name}  +{len(outputs) - 1} more"
     tk.Label(inner, text=name[:60], bg=t["field"], fg=t["fg"], font=("Segoe UI", 10)).pack(anchor="w")

@@ -778,3 +778,18 @@ def test_rename_rolls_back_on_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "rename", real)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["a.txt", "b.txt", "c.txt"]
     assert (tmp_path / "b.txt").read_text() == "b.txt"
+
+
+def test_read_only_folder_falls_back_to_downloads(tmp_path, monkeypatch):
+    from filewizard import util
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    real = util._writable
+    monkeypatch.setattr(util, "_writable", lambda folder: False if folder.name == "ro" else real(folder))
+    ro = tmp_path / "ro"
+    ro.mkdir()
+    src = ro / "pic.png"
+    Image.new("RGB", (10, 10)).save(src)
+    assert run("img-to-jpg", src) == 0
+    assert (tmp_path / "home" / "Downloads" / "FileWizard" / "pic.jpg").exists()
+    assert not (ro / "pic.jpg").exists()

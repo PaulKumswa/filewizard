@@ -52,8 +52,27 @@ def unique_path(path: Path) -> Path:
         i += 1
 
 
+def _writable(folder: Path) -> bool:
+    """Really try (os.access lies on Windows for many read-only locations)."""
+    probe = folder / f".fw-write-test-{os.getpid()}"
+    try:
+        probe.write_bytes(b"")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def fallback_dir() -> Path:
+    """Where results go when the original's folder is read-only: Downloads\\FileWizard."""
+    d = Path.home() / "Downloads" / "FileWizard"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def output_dir(src: Path) -> Path:
-    """Where results go: next to the original (default) or a 'FileWizard' subfolder (setting)."""
+    """Where results go: next to the original (default) or a 'FileWizard' subfolder (setting);
+    Downloads\\FileWizard if that folder can't be written (network share, ISO, Program Files…)."""
     folder = src.parent
     try:
         from .settings import load
@@ -63,6 +82,8 @@ def output_dir(src: Path) -> Path:
             folder.mkdir(exist_ok=True)
     except OSError:
         folder = src.parent
+    if not _writable(folder):
+        folder = fallback_dir()
     return folder
 
 

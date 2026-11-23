@@ -52,15 +52,28 @@ def unique_path(path: Path) -> Path:
         i += 1
 
 
+_WRITABLE: dict[str, bool] = {}
+_WRITABLE_LOCK = __import__("threading").Lock()
+
+
 def _writable(folder: Path) -> bool:
-    """Really try (os.access lies on Windows for many read-only locations)."""
-    probe = folder / f".fw-write-test-{os.getpid()}"
-    try:
-        probe.write_bytes(b"")
-        probe.unlink()
-        return True
-    except OSError:
-        return False
+    """Really try (os.access lies on Windows for many read-only locations). Each check uses its own
+    probe name (parallel batches!), and the answer is remembered per folder for this run."""
+    import uuid
+
+    key = str(folder)
+    with _WRITABLE_LOCK:
+        if key in _WRITABLE:
+            return _WRITABLE[key]
+        probe = folder / f".fw-write-test-{uuid.uuid4().hex}"
+        try:
+            probe.write_bytes(b"")
+            probe.unlink()
+            ok = True
+        except OSError:
+            ok = False
+        _WRITABLE[key] = ok
+        return ok
 
 
 def fallback_dir() -> Path:

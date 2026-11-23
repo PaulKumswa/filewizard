@@ -276,7 +276,14 @@ def _build() -> list[Operation]:
         batch=lambda ps, _: images.contact_sheet(sorted(ps, key=natural_key)))
 
     # ===== compress =====
-    add("pdf-compress", "Compress", PDF_EXTS, "edit", per_file=lambda p, _: pdf.compress(p))
+    PC = ("Compress",)
+    add("pdf-compress", "Smaller file, same look", PDF_EXTS, "edit", menu=PC, per_file=lambda p, _: pdf.compress(p))
+    for mb in (5, 2, 1):
+        add(f"pdf-under-{mb}mb", f"Under {mb} MB (upload limits)" if mb == 2 else f"Under {mb} MB", PDF_EXTS, "edit",
+            menu=PC, per_file=lambda p, _, m=mb: pdf.compress_to(p, m * 1024 * 1024))
+    add("pdf-under-custom", "Under a size I choose…", PDF_EXTS, "edit", menu=PC,
+        per_file=lambda p, prm: pdf.compress_to(p, int(_kb_value(prm["size"]))),
+        ask=_ask_text("size", "Make the PDF smaller than (e.g. 2 MB or 800 KB):", "2 MB"), param_names=("size",))
     IC = ("Compress",)
     add("img-compress", "Smaller file, same look", IMG_IN, "edit", menu=IC, per_file=lambda p, _: images.compress(p))
     for kb, why in ((1024, "1 MB"), (500, "500 KB"), (200, "200 KB (upload forms)")):
@@ -430,7 +437,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs",
+    "vid-extract-subs", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MULTI = {"combine-pdf", "media-join", "img-contact-sheet"}

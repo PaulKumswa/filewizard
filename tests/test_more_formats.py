@@ -506,3 +506,20 @@ def test_output_subfolder_setting(tmp_path, monkeypatch):
         assert (tmp_path / "FileWizard" / "a.jpg").exists()
     finally:
         settings.save({"output": "beside"})
+
+
+def test_pdf_under_size(tmp_path):
+    noisy = tmp_path / "scan.png"
+    Image.effect_noise((2500, 3300), 40).convert("RGB").save(noisy)
+    big = tmp_path / "scan.pdf"
+    d = pymupdf.open()
+    for _ in range(3):
+        d.new_page().insert_image(pymupdf.Rect(0, 0, 612, 792), filename=str(noisy))
+    d.save(big)
+    assert big.stat().st_size > 3 * 1024 * 1024
+    assert run("pdf-under-1mb", big) == 0
+    out = tmp_path / "scan (under 1 MB).pdf"
+    assert out.stat().st_size <= 1024 * 1024
+    with pymupdf.open(out) as o:
+        assert o.page_count == 3
+    assert run("pdf-under-custom", out, "-p", "size=5 MB") == 1  # already under: friendly message

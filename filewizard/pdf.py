@@ -466,3 +466,34 @@ def combine_any(files: list[Path]) -> list[Path]:
         out_doc.set_toc(toc)
     label = "merged" if all(f.suffix.lower() == ".pdf" for f in files) else "combined"
     return [_save(out_doc, sibling(files[0], label, ".pdf"))]
+
+
+def compress_to(src: Path, max_bytes: int) -> list[Path]:
+    """Fit a PDF under an upload limit, trying the gentlest settings first."""
+    import shutil
+    import tempfile
+
+    from .util import report
+
+    pymupdf = _pymupdf()
+    before = src.stat().st_size
+    label = f"under {max_bytes / 1024 / 1024:g} MB" if max_bytes >= 1024 * 1024 else f"under {max_bytes // 1024} KB"
+    if before <= max_bytes:
+        raise UserError(f"{src.name} is already {human_size(before)}, under the limit.")
+    steps = [(200, 80), (150, 70), (120, 60), (96, 50), (72, 40), (50, 30)]
+    with tempfile.TemporaryDirectory(prefix="fw-pdfsize-") as td:
+        for i, (dpi, quality) in enumerate(steps):
+            report(i / len(steps), f"Trying {dpi} dpi images at quality {quality}")
+            doc = _open(src)
+            if hasattr(doc, "rewrite_images"):
+                doc.rewrite_images(dpi_threshold=dpi + 10, dpi_target=dpi, quality=quality, lossy=True,
+                                   lossless=True, bitonal=False, color=True, gray=True)
+            trial = Path(td) / f"t{i}.pdf"
+            doc.save(trial, garbage=4, deflate=True, deflate_images=True, deflate_fonts=True, clean=True)
+            doc.close()
+            if trial.stat().st_size <= max_bytes:
+                out = sibling(src, label, ".pdf")
+                shutil.move(str(trial), out)
+                return [out]
+    raise UserError(f"Couldn't get {src.name} under {label[6:]} (best effort was still too big). "
+                    "It's probably mostly text/vector content, which images settings can't shrink.")

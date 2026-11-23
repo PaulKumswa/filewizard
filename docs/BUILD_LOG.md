@@ -82,6 +82,11 @@ Running notes below: what was tried, what happened, what's next.
 
 ## Next ideas (not started)
 
-- Windows 11 short (top-level) menu: needs an IExplorerCommand handler in a signed sparse package
-- Dark-mode dialogs (Tk can't follow the Windows theme; would need a different UI toolkit)
-- Microsoft Office COM path: written defensively but untested (no Office on CI runners)
+- **Windows 11 short (top-level) menu**: needs an `IExplorerCommand` handler shipped in a *signed* sparse
+  MSIX package. Signing needs a certificate (self-signed would mean adding it to your machine's trusted
+  store), and CI can't see the Win11 short menu to verify it. Meanwhile: Shift+right-click, or the
+  opt-in "always show the full menu" setting.
+- **Microsoft Office on your PC**: the COM path is hardened (separate instance, fail-fast prompts,
+  watchdog) but has never run against real Office. Try Word → PDF first and tell me what happens.
+- **Code signing** the installer (removes the SmartScreen warning): needs a paid certificate.
+- **More OCR languages**: the installer bundles English; others are a ~2–4 MB download each.

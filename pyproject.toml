@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "filewizard"
-version = "0.2.0"
+version = "0.3.0"
 description = "Right-click file conversions and PDF tools for Windows Explorer"
 readme = "README.md"
 license = "MIT"

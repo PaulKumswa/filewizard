@@ -62,6 +62,17 @@ follow your light/dark setting (dark mode shown below the table).</sub>
 
 <img src="docs/screenshots/dark-mode.png" width="420" alt="Dark mode">
 
+## Tips
+
+- **Windows 11:** hold **Shift** while right-clicking to skip "Show more options".
+- **Select several files first** to get batch actions: Merge/Combine, Join, Stitch, GIF/slideshow, ZIP, Rename.
+  Mixed selections (say a video + a song) offer what makes sense for that mix.
+- **Your recent actions float to the top** of the menu, so a daily "HEIC → JPG" is one hover.
+- **"All actions…"** opens a searchable list: type `heic`, `merge` or `under 2` and press Enter.
+- **Screenshot → file:** Win+Shift+S, then right-click empty space in a folder → *Paste clipboard image as file*.
+- **Changed your mind?** The *Done* notification has **Undo** (sends the new files to the Recycle Bin).
+- **Upload limits:** *Compress ▸ Under 2 MB* (PDFs), *Under 500 KB* (images), *Under 10 MB* (videos).
+
 ## Install
 
 **Easiest: the installer (no Python needed).**

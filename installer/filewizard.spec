@@ -16,7 +16,10 @@ hidden += ["filewizard." + m for m in ("archives", "cli", "collector", "docs", "
 hidden += ["win32com.client", "pythoncom", "pywintypes"]
 
 a = Analysis(["entry.py"], pathex=[".."], datas=datas, binaries=binaries, hiddenimports=hidden,
-             excludes=["matplotlib", "pandas", "scipy", "IPython", "pytest"], noarchive=False)
+             # onnxruntime/pymupdf_layout/pymupdf4llm arrive as optional PyMuPDF extras that
+             # FileWizard never uses (~tens of MB); the frozen smoke test guards this list.
+             excludes=["matplotlib", "pandas", "scipy", "IPython", "pytest", "onnxruntime",
+                       "pymupdf_layout", "pymupdf4llm", "networkx", "sympy"], noarchive=False)
 pyz = PYZ(a.pure)
 
 common = dict(debug=False, strip=False, upx=False, icon="filewizard.ico")

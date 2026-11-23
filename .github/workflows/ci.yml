@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Unit tests
+        run: python -m pytest -q tests --ignore=tests/windows
+        env:
+          FILEWIZARD_NO_MSOFFICE: "1"
+
+  windows-shell:
+    name: real Explorer context menu (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install ".[dev]"
+      - name: Shell integration tests
+        run: python -m pytest -v -s tests/windows
+        env:
+          FILEWIZARD_SHELL_TEST: "1"
+      - name: Upload FileWizard log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: filewizard-log
+          path: ~/AppData/Local/FileWizard/filewizard.log
+          if-no-files-found: ignore

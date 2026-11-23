@@ -1,38 +1,82 @@
-"""User interaction: prompts, message boxes, progress, file ordering.
+"""User interaction: prompts, message boxes, progress, notifications, file ordering.
 
 Everything degrades gracefully: with FILEWIZARD_NONINTERACTIVE=1 (tests, scripts) or
-no display, prompts fail loudly instead of hanging and messages go to stderr.
+no display, prompts fail loudly instead of hanging and messages go to the log/stderr.
 """
 
 from __future__ import annotations
 
+import logging
 import os
+import subprocess
 import sys
 import threading
 from pathlib import Path
-from typing import Callable, TypeVar
+from typing import Callable, Iterable, TypeVar
 
-from .util import APP_NAME
+from .util import APP_NAME, PROGRESS
 
 T = TypeVar("T")
+log = logging.getLogger("filewizard")
+
+ACCENT = "#3462dc"
 
 
 def interactive() -> bool:
     return os.environ.get("FILEWIZARD_NONINTERACTIVE") != "1"
 
 
-def _tk_root():
+def _stderr(text: str) -> None:
+    if sys.stderr is not None:  # pythonw has no console
+        print(text, file=sys.stderr)
+    log.info("message: %s", text)
+
+
+def _dpi_aware() -> None:
+    """Crisp (not blurry) dialogs on high-DPI laptop screens."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            pass
+
+
+def _root(title: str = APP_NAME, hidden: bool = True):
     import tkinter as tk
 
+    _dpi_aware()
     root = tk.Tk()
-    root.withdraw()
+    root.title(title)
+    if hidden:
+        root.withdraw()
     root.attributes("-topmost", True)  # don't hide behind Explorer
+    try:
+        from .util import app_dir
+
+        ico = app_dir() / "filewizard.ico"
+        if ico.exists() and sys.platform == "win32":
+            root.iconbitmap(str(ico))
+    except Exception:
+        pass
     return root
 
 
+def _center(win, w: int | None = None, h: int | None = None):
+    win.update_idletasks()
+    w = w or win.winfo_reqwidth()
+    h = h or win.winfo_reqheight()
+    x = (win.winfo_screenwidth() - w) // 2
+    y = (win.winfo_screenheight() - h) // 3
+    win.geometry(f"+{x}+{y}")
+
+
+# ---------- simple dialogs ----------
+
 def message(text: str, error: bool = False) -> None:
     if not interactive():
-        print(("ERROR: " if error else "") + text, file=sys.stderr)
+        _stderr(("ERROR: " if error else "") + text)
         return
     if sys.platform == "win32":
         import ctypes
@@ -44,26 +88,58 @@ def message(text: str, error: bool = False) -> None:
     try:
         from tkinter import messagebox
 
-        root = _tk_root()
+        root = _root()
         (messagebox.showerror if error else messagebox.showinfo)(APP_NAME, text, parent=root)
         root.destroy()
     except Exception:
-        print(text, file=sys.stderr)
+        _stderr(text)
+
+
+def confirm(text: str) -> bool:
+    if not interactive():
+        return True
+    from tkinter import messagebox
+
+    root = _root()
+    try:
+        return bool(messagebox.askokcancel(APP_NAME, text, parent=root))
+    finally:
+        root.destroy()
 
 
 def ask_string(prompt: str, initial: str = "", secret: bool = False) -> str | None:
     """Return the typed text, or None if the user cancelled."""
     if not interactive():
         raise RuntimeError(f"Input needed but running non-interactively: {prompt}")
-    from tkinter import simpledialog
+    import tkinter as tk
+    from tkinter import ttk
 
-    root = _tk_root()
-    try:
-        return simpledialog.askstring(
-            APP_NAME, prompt, initialvalue=initial, show="•" if secret else None, parent=root
-        )
-    finally:
+    root = _root(hidden=False)
+    root.resizable(False, False)
+    result: dict[str, str | None] = {"v": None}
+    frm = ttk.Frame(root, padding=16)
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text=prompt, justify="left", wraplength=460).pack(anchor="w")
+    var = tk.StringVar(value=initial)
+    entry = ttk.Entry(frm, textvariable=var, width=50, show="•" if secret else "")
+    entry.pack(fill="x", pady=(10, 12))
+    entry.focus_set()
+    entry.select_range(0, "end")
+
+    def ok(_=None):
+        result["v"] = var.get()
         root.destroy()
+
+    btns = ttk.Frame(frm)
+    btns.pack(fill="x")
+    ttk.Button(btns, text="Cancel", command=root.destroy).pack(side="right")
+    ttk.Button(btns, text="OK", command=ok).pack(side="right", padx=(0, 6))
+    root.bind("<Return>", ok)
+    root.bind("<Escape>", lambda e: root.destroy())
+    _center(root)
+    root.after(50, lambda: (root.lift(), root.focus_force(), entry.focus_set()))
+    root.mainloop()
+    return result["v"]
 
 
 def ask_new_password() -> str | None:
@@ -82,25 +158,58 @@ def ask_new_password() -> str | None:
     return pw
 
 
-def order_files(files: list[Path], title: str) -> list[Path] | None:
-    """Let the user reorder/remove files (e.g. before merging). None = cancelled."""
-    if not interactive() or len(files) < 2:
+def show_text(title: str, text: str) -> None:
+    """Read-only text with a Copy button (checksums, OCR previews)."""
+    if not interactive():
+        _stderr(text)
+        return
+    import tkinter as tk
+    from tkinter import ttk
+
+    root = _root(f"{APP_NAME} — {title}", hidden=False)
+    frm = ttk.Frame(root, padding=12)
+    frm.pack(fill="both", expand=True)
+    box = tk.Text(frm, width=90, height=min(24, text.count("\n") + 2), font=("Consolas", 10), wrap="none")
+    box.insert("1.0", text)
+    box.configure(state="disabled")
+    box.pack(fill="both", expand=True)
+
+    def copy():
+        root.clipboard_clear()
+        root.clipboard_append(text)
+        copy_btn.configure(text="Copied ✓")
+
+    btns = ttk.Frame(frm)
+    btns.pack(fill="x", pady=(8, 0))
+    ttk.Button(btns, text="Close", command=root.destroy).pack(side="right")
+    copy_btn = ttk.Button(btns, text="Copy", command=copy)
+    copy_btn.pack(side="right", padx=6)
+    root.bind("<Escape>", lambda e: root.destroy())
+    _center(root)
+    root.mainloop()
+
+
+# ---------- ordering (merge/combine/join) ----------
+
+def order_files(files: list[Path], title: str, add_types: Iterable[str] | None = None) -> list[Path] | None:
+    """Let the user reorder/add/remove files before merging. None = cancelled."""
+    if not interactive():
         return files
     import tkinter as tk
+    from tkinter import filedialog, ttk
 
-    root = tk.Tk()
-    root.title(f"{APP_NAME} — {title}")
-    root.attributes("-topmost", True)
+    root = _root(f"{APP_NAME} — {title}", hidden=False)
     items = list(files)
     result: dict[str, list[Path] | None] = {"v": None}
-
-    tk.Label(root, text="The top file goes first. Select a file and use the buttons to reorder.").pack(
-        padx=10, pady=(10, 4), anchor="w"
-    )
-    body = tk.Frame(root)
-    body.pack(fill="both", expand=True, padx=10)
-    lb = tk.Listbox(body, width=70, height=min(max(len(items), 5), 20), selectmode="browse")
+    frm = ttk.Frame(root, padding=12)
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text="The top file goes first. Drag to reorder, or use the buttons.").pack(anchor="w", pady=(0, 6))
+    body = ttk.Frame(frm)
+    body.pack(fill="both", expand=True)
+    lb = tk.Listbox(body, width=70, height=min(max(len(items), 8), 20), selectmode="browse",
+                    activestyle="none", font=("Segoe UI", 10))
     lb.pack(side="left", fill="both", expand=True)
+    ok_btn = None
 
     def refresh(sel: int | None = None):
         lb.delete(0, "end")
@@ -110,14 +219,13 @@ def order_files(files: list[Path], title: str) -> list[Path] | None:
             sel = max(0, min(sel, len(items) - 1))
             lb.selection_set(sel)
             lb.see(sel)
+        if ok_btn is not None:
+            ok_btn.state(["!disabled"] if len(items) >= 2 else ["disabled"])
 
     def move(delta: int):
         cur = lb.curselection()
-        if not cur:
-            return
-        i = cur[0]
-        j = i + delta
-        if 0 <= j < len(items):
+        if cur and 0 <= cur[0] + delta < len(items):
+            i, j = cur[0], cur[0] + delta
             items[i], items[j] = items[j], items[i]
             refresh(j)
 
@@ -127,37 +235,74 @@ def order_files(files: list[Path], title: str) -> list[Path] | None:
             items.pop(cur[0])
             refresh(cur[0])
 
-    def reverse():
-        items.reverse()
+    def add():
+        pats = " ".join(f"*{e}" for e in sorted(add_types or [])) or "*.*"
+        picked = filedialog.askopenfilenames(parent=root, title="Add files",
+                                             initialdir=str(items[0].parent) if items else None,
+                                             filetypes=[("Supported files", pats), ("All files", "*.*")])
+        for p in picked:
+            if Path(p) not in items:
+                items.append(Path(p))
+        refresh(len(items) - 1)
+
+    def sort_by_name():
+        from .util import natural_key
+
+        items.sort(key=natural_key)
         refresh(0)
 
-    btns = tk.Frame(body)
-    btns.pack(side="left", fill="y", padx=(8, 0))
-    for text, cmd in (("▲ Up", lambda: move(-1)), ("▼ Down", lambda: move(1)),
-                      ("Remove", remove), ("Reverse", reverse)):
-        tk.Button(btns, text=text, width=10, command=cmd).pack(pady=2)
+    # drag to reorder
+    drag = {"i": None}
+    lb.bind("<Button-1>", lambda e: drag.update(i=lb.nearest(e.y)))
 
-    def ok():
-        result["v"] = list(items)
-        root.destroy()
+    def on_drag(e):
+        j = lb.nearest(e.y)
+        i = drag["i"]
+        if i is not None and j != i and 0 <= j < len(items):
+            items.insert(j, items.pop(i))
+            drag["i"] = j
+            refresh(j)
 
-    foot = tk.Frame(root)
-    foot.pack(fill="x", padx=10, pady=10)
-    tk.Button(foot, text="Cancel", width=10, command=root.destroy).pack(side="right")
-    tk.Button(foot, text="OK", width=10, command=ok, default="active").pack(side="right", padx=6)
-    root.bind("<Return>", lambda e: ok())
+    lb.bind("<B1-Motion>", on_drag)
+
+    side = ttk.Frame(body)
+    side.pack(side="left", fill="y", padx=(8, 0))
+    for text, cmd in (("▲ Up", lambda: move(-1)), ("▼ Down", lambda: move(1)), ("Add files…", add),
+                      ("Remove", remove), ("Sort A→Z", sort_by_name),
+                      ("Reverse", lambda: (items.reverse(), refresh(0)))):
+        ttk.Button(side, text=text, width=12, command=cmd).pack(pady=2)
+
+    def ok(_=None):
+        if len(items) >= 2:
+            result["v"] = list(items)
+            root.destroy()
+
+    foot = ttk.Frame(frm)
+    foot.pack(fill="x", pady=(10, 0))
+    ttk.Button(foot, text="Cancel", command=root.destroy).pack(side="right")
+    ok_btn = ttk.Button(foot, text="Continue", command=ok)
+    ok_btn.pack(side="right", padx=6)
+    hint = ttk.Label(foot, text="", foreground="#666")
+    hint.pack(side="left")
+    if len(items) < 2:
+        hint.configure(text="Only one file selected — use “Add files…” to add more.")
+    root.bind("<Return>", ok)
     root.bind("<Escape>", lambda e: root.destroy())
     refresh(0)
+    _center(root)
     root.mainloop()
-    return result["v"] if result["v"] else None
+    return result["v"]
 
+
+# ---------- progress ----------
 
 def run_with_progress(title: str, work: Callable[[], T]) -> T:
-    """Run `work` in a thread; show a small 'Working…' window if it takes > 1s."""
+    """Run `work` in a thread; after 0.8 s show a progress window with a Cancel button."""
     if not interactive():
         return work()
     try:
         import tkinter as tk
+        from tkinter import ttk
     except ImportError:
         return work()
 
@@ -171,28 +316,134 @@ def run_with_progress(title: str, work: Callable[[], T]) -> T:
 
     t = threading.Thread(target=target, daemon=True)
     t.start()
-    t.join(1.0)
+    t.join(0.8)
     if t.is_alive():
         try:
-            root = tk.Tk()
+            root = _root(APP_NAME, hidden=False)
         except Exception:  # no display
             t.join()
         else:
-            root.title(APP_NAME)
-            root.attributes("-topmost", True)
             root.resizable(False, False)
-            tk.Label(root, text=f"{title}…", padx=30, pady=20).pack()
-            root.protocol("WM_DELETE_WINDOW", lambda: None)  # can't safely cancel mid-write
+            frm = ttk.Frame(root, padding=16)
+            frm.pack(fill="both", expand=True)
+            head = ttk.Label(frm, text=f"{title}…", font=("Segoe UI", 11, "bold"))
+            head.pack(anchor="w")
+            detail = ttk.Label(frm, text="", width=60, foreground="#555")
+            detail.pack(anchor="w", pady=(4, 8))
+            bar = ttk.Progressbar(frm, length=420, mode="indeterminate")
+            bar.pack(fill="x")
+            bar.start(12)
+            pct = ttk.Label(frm, text="")
+            pct.pack(anchor="e")
+            state = {"det": False}
+
+            def cancel():
+                PROGRESS.cancelled = True
+                cancel_btn.state(["disabled"])
+                head.configure(text="Cancelling…")
+
+            cancel_btn = ttk.Button(frm, text="Cancel", command=cancel)
+            cancel_btn.pack(anchor="e", pady=(6, 0))
+            root.protocol("WM_DELETE_WINDOW", cancel)
 
             def poll():
-                if t.is_alive():
-                    root.after(150, poll)
-                else:
+                if not t.is_alive():
                     root.destroy()
+                    return
+                f = PROGRESS.fraction
+                if f is not None:
+                    if not state["det"]:
+                        bar.stop()
+                        bar.configure(mode="determinate", maximum=1000)
+                        state["det"] = True
+                    bar["value"] = f * 1000
+                    pct.configure(text=f"{f * 100:.0f}%")
+                if PROGRESS.text:
+                    detail.configure(text=PROGRESS.text[:90])
+                root.after(120, poll)
 
+            _center(root)
             poll()
             root.mainloop()
             t.join()
     if "error" in box:
         raise box["error"]
     return box["result"]
+
+
+# ---------- "done" notification ----------
+
+def reveal(path: Path) -> None:
+    if sys.platform == "win32":
+        subprocess.Popen(["explorer", "/select,", str(path)])
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", "-R", str(path)])
+    else:
+        subprocess.Popen(["xdg-open", str(path.parent)])
+
+
+def open_file(path: Path) -> None:
+    if sys.platform == "win32":
+        os.startfile(str(path))  # noqa: S606 - opening the user's own output
+    else:
+        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
+
+
+def notify_done(outputs: list[Path], summary: str = "") -> None:
+    """Small toast in the bottom-right corner: what was made, with Open / Show in folder."""
+    if not interactive() or not outputs or os.environ.get("FILEWIZARD_NO_NOTIFY") == "1":
+        return
+    from .settings import load
+
+    if not load().get("notify", True):
+        return
+    try:
+        import tkinter as tk
+        from tkinter import ttk
+    except ImportError:
+        return
+    root = _root(APP_NAME, hidden=False)
+    root.overrideredirect(True)
+    root.configure(bg=ACCENT)
+    inner = tk.Frame(root, bg="white", padx=14, pady=12)
+    inner.pack(fill="both", expand=True, padx=(4, 0))
+    first = outputs[0]
+    title = "✓  Done" if len(outputs) == 1 else f"✓  Done — {len(outputs)} files"
+    tk.Label(inner, text=title, bg="white", fg=ACCENT, font=("Segoe UI", 11, "bold")).pack(anchor="w")
+    name = first.name if len(outputs) == 1 else f"{first.name}  +{len(outputs) - 1} more"
+    tk.Label(inner, text=name[:60], bg="white", fg="#222", font=("Segoe UI", 10)).pack(anchor="w")
+    if summary:
+        tk.Label(inner, text=summary[:80], bg="white", fg="#666", font=("Segoe UI", 9)).pack(anchor="w")
+    row = tk.Frame(inner, bg="white")
+    row.pack(anchor="w", pady=(8, 0))
+
+    def act(fn):
+        try:
+            fn()
+        finally:
+            root.destroy()
+
+    if first.is_file():
+        ttk.Button(row, text="Open", command=lambda: act(lambda: open_file(first))).pack(side="left")
+    ttk.Button(row, text="Show in folder", command=lambda: act(lambda: reveal(first))).pack(side="left", padx=6)
+    ttk.Button(row, text="✕", width=3, command=root.destroy).pack(side="left")
+    root.update_idletasks()
+    w, h = max(root.winfo_reqwidth(), 340), root.winfo_reqheight()
+    x = root.winfo_screenwidth() - w - 24
+    y = root.winfo_screenheight() - h - 72  # above the taskbar
+    root.geometry(f"{w}x{h}+{x}+{y}")
+    # stay while hovered, otherwise fade out after a few seconds
+    state = {"hover": False}
+    root.bind("<Enter>", lambda e: state.update(hover=True))
+    root.bind("<Leave>", lambda e: state.update(hover=False))
+
+    def tick(left=7.0):
+        if state["hover"]:
+            root.after(500, tick, 3.0)
+        elif left <= 0:
+            root.destroy()
+        else:
+            root.after(500, tick, left - 0.5)
+
+    tick()
+    root.mainloop()

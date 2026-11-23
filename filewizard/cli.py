@@ -5,6 +5,7 @@
     filewizard run pdf-extract x.pdf -p pages=1-3
     filewizard install | uninstall           add/remove the Explorer right-click menu (Windows)
     filewizard export-reg menu.reg           write the registry entries to a file to inspect
+    filewizard menu .jpg                     preview the right-click menu for a file type
     filewizard doctor                        check which optional pieces are available
 """
 
@@ -51,6 +52,8 @@ def cmd_run(args) -> int:
     files = [Path(p) for p in paths]
     log.info("run %s on %d file(s): %s", op.id, len(files), [f.name for f in files])
 
+    from .util import PROGRESS, Cancelled
+
     try:
         missing = [f for f in files if not f.exists()]
         if missing:
@@ -64,7 +67,11 @@ def cmd_run(args) -> int:
                 log.info("cancelled by user")
                 return 1
             params = {**asked, **params}
-        outputs, errors = ui.run_with_progress(op.label.rstrip("…"), lambda: execute(op, files, params))
+        outputs, errors, messages = ui.run_with_progress(
+            op.label.rstrip("…"), lambda: execute(op, files, params))
+    except Cancelled:
+        log.info("cancelled during run")
+        return 1
     except UserError as e:
         log.info("user error: %s", e)
         ui.message(str(e), error=True) if args.shell else print(f"Error: {e}", file=sys.stderr)
@@ -74,11 +81,18 @@ def cmd_run(args) -> int:
         text = f"Something went wrong: {type(e).__name__}: {e}\n\nDetails are in the FileWizard log."
         ui.message(text, error=True) if args.shell else print(text, file=sys.stderr)
         return 1
+    finally:
+        PROGRESS.cancelled = False
 
     for o in outputs:
         log.info("wrote %s", o)
         if not args.shell:
             print(o)
+    for m in messages:
+        if args.shell:
+            ui.show_text(op.label, m)
+        else:
+            print(m)
     if errors:
         log.info("errors: %s", errors)
         text = "\n\n".join(errors)
@@ -86,6 +100,8 @@ def cmd_run(args) -> int:
             text = f"{len(outputs)} file(s) done, but some failed:\n\n" + text
         ui.message(text, error=True) if args.shell else print(text, file=sys.stderr)
         return 1
+    if args.shell:
+        ui.notify_done(outputs)
     return 0
 
 
@@ -96,10 +112,11 @@ def cmd_list(args) -> int:
     for op in OPERATIONS:
         if op.group != group:
             group = op.group
-            print(f"\n{group}")
+            print(f"\n[{group}]")
         exts = " ".join(sorted(e for e in op.exts if e not in op.exclude_exts))
         params = (" [" + ", ".join(f"-p {n}=" for n in op.param_names) + "]") if op.param_names else ""
-        print(f"  {op.id:<20} {op.label:<32} {exts}{params}")
+        exts = exts if len(exts) < 70 else exts[:67] + "..."
+        print(f"  {op.id:<22} {op.full_label:<44} {exts}{params}")
     return 0
 
 
@@ -154,6 +171,9 @@ def main(argv: list[str] | None = None) -> int:
     r.set_defaults(fn=cmd_run)
 
     sub.add_parser("list", help="list actions").set_defaults(fn=cmd_list)
+    m = sub.add_parser("menu", help="preview the right-click menu for a file type, e.g. `menu .jpg`")
+    m.add_argument("ext")
+    m.set_defaults(fn=lambda a: print(__import__("filewizard.shell_menu", fromlist=["x"]).render_menu(a.ext)) or 0)
     sub.add_parser("doctor", help="check optional dependencies").set_defaults(fn=cmd_doctor)
     e = sub.add_parser("export-reg", help="write the menu's registry entries to a .reg file")
     e.add_argument("out", nargs="?")

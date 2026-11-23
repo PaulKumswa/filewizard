@@ -136,8 +136,8 @@ def _via_libreoffice(src: Path, out: Path, target: str) -> bool:
     return True
 
 
-def convert(src: Path, target: str) -> list[Path]:
-    out = sibling(src, None, target)
+def convert(src: Path, target: str, out: Path | None = None) -> list[Path]:
+    out = out or sibling(src, None, target)
     if _com_available():
         try:
             if _via_msoffice(src, out, target):

@@ -102,3 +102,35 @@ def human_size(n: int) -> str:
             return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
         n /= 1024
     return f"{n} B"
+
+
+# ---------- progress reporting ----------
+# Long operations call report(fraction, text). The UI installs a sink that drives a
+# progress bar; by default reports go nowhere. A fraction of None means "indeterminate".
+
+class Cancelled(Exception):
+    """Raised inside an operation when the user pressed Cancel."""
+
+
+class _Progress:
+    def __init__(self):
+        self.fraction: float | None = None
+        self.text = ""
+        self.cancelled = False
+        self.base = 0.0   # for batches: file i of n maps to [i/n, (i+1)/n)
+        self.span = 1.0
+
+    def report(self, fraction: float | None = None, text: str | None = None):
+        if self.cancelled:
+            raise Cancelled()
+        if fraction is not None:
+            self.fraction = self.base + self.span * max(0.0, min(1.0, fraction))
+        if text is not None:
+            self.text = text
+
+
+PROGRESS = _Progress()
+
+
+def report(fraction: float | None = None, text: str | None = None) -> None:
+    PROGRESS.report(fraction, text)

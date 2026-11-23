@@ -14,7 +14,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from .operations import ALL_EXTS, for_ext
+from .operations import ALL_EXTS, DIR, OPERATIONS, for_ext
 from .util import APP_NAME, app_dir
 
 ROOT = r"Software\Classes\SystemFileAssociations"
@@ -25,31 +25,77 @@ REG_SZ, REG_DWORD = "REG_SZ", "REG_DWORD"
 Entries = list[tuple[str, dict[str, tuple[str, object]]]]
 
 
+def _slug(name: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-")
+
+
+def _submenu_index() -> dict[tuple[str, ...], int]:
+    """Stable sort position for each submenu: where its first item sits in the global catalog.
+
+    Using global positions (not per-extension ones) keeps every verb's registry key name
+    identical across file types, which is what lets Explorer run one command over a mixed
+    selection (say a .jpg and a .png together).
+    """
+    idx: dict[tuple[str, ...], int] = {}
+    for i, op in enumerate(OPERATIONS):
+        for depth in range(1, len(op.menu) + 1):
+            idx.setdefault(op.menu[:depth], i)
+    return idx
+
+
+def _menu_root(ext: str) -> str:
+    if ext == DIR:
+        return rf"Software\Classes\Directory\shell\{MENU_KEY}"
+    return rf"{ROOT}\{ext}\shell\{MENU_KEY}"
+
+
 def build_entries(command_prefix: str, icon: str | None) -> Entries:
     """All registry keys/values to create. `command_prefix` gets ` <op-id> "%1"` appended."""
     entries: Entries = []
-    for ext in ALL_EXTS:
+    sub_idx = _submenu_index()
+    gidx = {op.id: i for i, op in enumerate(OPERATIONS)}
+    for ext in [*ALL_EXTS, DIR]:
         ops = for_ext(ext)
         if not ops:
             continue
-        base = rf"{ROOT}\{ext}\shell\{MENU_KEY}"
+        base = _menu_root(ext)
         top = {"MUIVerb": (REG_SZ, APP_NAME), "SubCommands": (REG_SZ, "")}
         if icon:
             top["Icon"] = (REG_SZ, icon)
         entries.append((base, top))
-        prev_group = None
-        for i, op in enumerate(ops, 1):
-            key = rf"{base}\shell\{i:02d}_{op.id}"
+
+        # Top-level nodes (items and submenus) in display order, to place separators.
+        nodes: dict[str, tuple[int, str]] = {}  # key name -> (sort index, group)
+        made_menus: set[tuple[str, ...]] = set()
+        for op in ops:
+            parent = base
+            for depth in range(1, len(op.menu) + 1):
+                path = op.menu[:depth]
+                key = rf"{parent}\shell\{sub_idx[path]:03d}_{_slug(path[-1])}"
+                if path not in made_menus:
+                    made_menus.add(path)
+                    entries.append((key, {"MUIVerb": (REG_SZ, path[-1]), "SubCommands": (REG_SZ, ""),
+                                          "MultiSelectModel": (REG_SZ, "Player")}))
+                    if depth == 1:
+                        nodes[key] = (sub_idx[path], op.group)
+                parent = key
+            key = rf"{parent}\shell\{gidx[op.id]:03d}_{op.id}"
             vals: dict[str, tuple[str, object]] = {
-                "MUIVerb": (REG_SZ, op.label),
+                "MUIVerb": (REG_SZ, op.label_for(ext)),
                 # Without this, Explorer hides the verb when more than 15 files are selected.
                 "MultiSelectModel": (REG_SZ, "Player"),
             }
-            if prev_group is not None and op.group != prev_group:
-                vals["CommandFlags"] = (REG_DWORD, ECF_SEPARATORBEFORE)
-            prev_group = op.group
             entries.append((key, vals))
             entries.append((rf"{key}\command", {"": (REG_SZ, f'{command_prefix} {op.id} "%1"')}))
+            if not op.menu:
+                nodes[key] = (gidx[op.id], op.group)
+
+        prev = None
+        index = {k: i for i, (k, _) in enumerate(entries)}
+        for key, (_, group) in sorted(nodes.items(), key=lambda kv: kv[1][0]):
+            if prev is not None and group != prev:
+                entries[index[key]][1]["CommandFlags"] = (REG_DWORD, ECF_SEPARATORBEFORE)
+            prev = group
     return entries
 
 
@@ -176,8 +222,9 @@ def uninstall(quiet: bool = False) -> int:
                     break
     except FileNotFoundError:
         subkeys = []
-    for ext in subkeys:  # scan, so entries from older versions get cleaned up too
-        path = rf"{ROOT}\{ext}\shell\{MENU_KEY}"
+    paths = [rf"{ROOT}\{ext}\shell\{MENU_KEY}" for ext in subkeys]  # scan: cleans old versions too
+    paths.append(_menu_root(DIR))
+    for path in paths:
         try:
             winreg.OpenKey(hk, path).Close()
         except FileNotFoundError:
@@ -220,3 +267,33 @@ def install() -> None:
     print(f"Launcher: {launcher}")
     print("Right-click a PDF, image or Office file. On Windows 11, it's under 'Show more options'"
           " (or hold Shift while right-clicking).")
+
+
+def render_menu(ext: str) -> str:
+    """Text picture of the FileWizard submenu for one extension, exactly as registered."""
+    ext = ext if ext == DIR or ext.startswith(".") else "." + ext
+    ext = ext.lower()
+    base = _menu_root(ext)
+    entries = {k: v for k, v in build_entries("cmd", None) if k.startswith(base)}
+    if base not in entries:
+        return f"(no FileWizard menu for {ext})"
+
+    def children(key: str) -> list[str]:
+        pre = key + "\\shell\\"
+        return sorted(k for k in entries if k.startswith(pre) and "\\" not in k[len(pre):])
+
+    lines = [f"{APP_NAME}  ▸"]
+
+    def walk(key: str, depth: int):
+        for child in children(key):
+            vals = entries[child]
+            if "CommandFlags" in vals:
+                lines.append("    " * depth + "────────────")
+            label = vals["MUIVerb"][1]
+            sub = "SubCommands" in vals
+            lines.append("    " * depth + label + ("  ▸" if sub else ""))
+            if sub:
+                walk(child, depth + 1)
+
+    walk(base, 1)
+    return "\n".join(lines)

@@ -74,7 +74,7 @@ def test_unique_path(tmp_path):
 def test_merge_and_order(tmp_path):
     a = make_pdf(tmp_path / "a10.pdf", 1)
     b = make_pdf(tmp_path / "a2.pdf", 2)
-    assert run("pdf-merge", a, b) == 0
+    assert run("combine-pdf", a, b) == 0
     out = tmp_path / "a2 (merged).pdf"  # natural sort: a2 before a10
     assert pages(out) == 3
     with pymupdf.open(out) as d:
@@ -82,7 +82,7 @@ def test_merge_and_order(tmp_path):
 
 
 def test_merge_needs_two(tmp_path, capsys):
-    assert run("pdf-merge", make_pdf(tmp_path / "a.pdf")) == 1
+    assert run("combine-pdf", make_pdf(tmp_path / "a.pdf")) == 1
     assert "at least two" in capsys.readouterr().err
 
 
@@ -266,7 +266,7 @@ def test_images_to_pdf(tmp_path):
     assert run("img-to-pdf", a) == 0
     with pymupdf.open(tmp_path / "1.pdf") as d:
         assert d[0].rect.height <= 792.5  # fits US Letter
-    assert run("img-combine-pdf", b, a) == 0
+    assert run("combine-pdf", b, a) == 0
     with pymupdf.open(tmp_path / "1 (combined).pdf") as d:
         assert d.page_count == 2
         assert d[0].rect.height > d[0].rect.width  # 1.jpg (portrait) first
@@ -303,21 +303,48 @@ def test_registry_entries():
     keys = dict(entries)
     base = r"Software\Classes\SystemFileAssociations\.pdf\shell\FileWizard"
     assert keys[base]["SubCommands"] == ("REG_SZ", "")
-    pdf_verbs = [k for k in keys if k.startswith(base + r"\shell\\"[:-1]) and not k.endswith("command")]
-    assert any(k.endswith("pdf-merge") for k in pdf_verbs)
-    assert not any("img-to-png" in k for k in pdf_verbs)
-    cmd = keys[next(k for k in keys if k.endswith(r"pdf-merge\command"))][""][1]
-    assert cmd == '"C:\\py\\pythonw.exe" "C:\\fw\\launch.pyw" pdf-merge "%1"'
-    # PNG files don't offer "Convert to PNG"
-    png = [k for k in keys if r"\.png\shell" in k]
-    assert not any(k.endswith("img-to-png") for k in png)
-    assert any(k.endswith("img-to-jpg") for k in png)
-    # submenu verbs sort in menu order
-    names = [k.rsplit("\\", 1)[1] for k in pdf_verbs if k.count("\\") == base.count("\\") + 2]
-    assert names == sorted(names)
+    pdf_keys = [k for k in keys if k.startswith(base + "\\")]
+    assert any(k.endswith("combine-pdf") for k in pdf_keys)
+    assert not any("img-to-png" in k for k in pdf_keys)
+    cmd = keys[next(k for k in pdf_keys if k.endswith("combine-pdf\\command"))][""][1]
+    assert cmd == '"C:\\py\\pythonw.exe" "C:\\fw\\launch.pyw" combine-pdf "%1"'
+    # nested: Convert to > PNG on a jpg, and no "Convert to PNG" on a png
+    jpg = [k for k in keys if "\\.jpg\\shell" in k]
+    assert any(k.endswith("_convert-to\\shell\\" + k.rsplit("\\", 1)[1]) and k.endswith("img-to-png") for k in jpg)
+    assert not any(k.endswith("img-to-png") for k in keys if "\\.png\\shell" in k)
+    # per-extension label: "Merge" on PDFs, "Combine" elsewhere
+    assert keys[next(k for k in pdf_keys if k.endswith("combine-pdf"))]["MUIVerb"][1].startswith("Merge")
+    assert keys[next(k for k in jpg if k.endswith("combine-pdf"))]["MUIVerb"][1].startswith("Combine")
+    # folders get a menu too
+    assert any(k.startswith(r"Software\Classes\Directory\shell\FileWizard") for k in keys)
     reg = shell_menu.to_reg_file(entries)
     assert reg.startswith("Windows Registry Editor Version 5.00")
     assert '"CommandFlags"=dword:00000020' in reg
+
+
+def test_verb_keys_identical_across_types():
+    """Mixed selections (jpg+png, pdf+docx) only work if each verb has one key name everywhere."""
+    entries = shell_menu.build_entries("x", None)
+    by_op: dict[str, set[str]] = {}
+    for key, vals in entries:
+        if key.endswith("\\command"):
+            op = vals[""][1].split()[1]
+            tail = key.split("\\shell\\FileWizard", 1)[1]
+            by_op.setdefault(op, set()).add(tail)
+    for op, tails in by_op.items():
+        assert len(tails) == 1, (op, tails)
+
+
+def test_registry_key_lengths():
+    for key, _ in shell_menu.build_entries("x", None):
+        assert len(key) < 255, key
+
+
+def test_menu_preview():
+    text = shell_menu.render_menu(".jpg")
+    assert "Convert to  ▸" in text and "HEIC" in text
+    assert "(audio only)" in shell_menu.render_menu("mp4")
+    assert "Merge selected PDFs" in shell_menu.render_menu(".pdf")
 
 
 def test_launcher_runs(tmp_path, monkeypatch):
@@ -340,7 +367,7 @@ def test_collector_merges_parallel_invocations(tmp_path):
     env = {**os.environ, "FILEWIZARD_NONINTERACTIVE": "1", "TMPDIR": str(tmp_path / "q"),
            "XDG_STATE_HOME": str(tmp_path / "state"), "PYTHONPATH": str(REPO)}
     (tmp_path / "q").mkdir()
-    procs = [subprocess.Popen([sys.executable, "-m", "filewizard", "run", "--shell", "pdf-merge", str(f)],
+    procs = [subprocess.Popen([sys.executable, "-m", "filewizard", "run", "--shell", "combine-pdf", str(f)],
                               env=env, cwd=REPO, stderr=subprocess.PIPE, text=True) for f in files]
     errs = [p.communicate(timeout=60)[1] for p in procs]
     assert all(p.returncode == 0 for p in procs), errs
@@ -360,5 +387,6 @@ def test_collector_unit(tmp_path, monkeypatch):
 
 def test_every_op_has_a_menu_home():
     for op in operations.OPERATIONS:
-        assert any(op.applies_to(e) for e in operations.ALL_EXTS), op.id
+        assert any(op.applies_to(e) for e in [*operations.ALL_EXTS, operations.DIR]), op.id
         assert (op.per_file is None) != (op.batch is None), op.id
+        assert not (op.param_names and op.ask is None), op.id

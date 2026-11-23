@@ -13,8 +13,9 @@ What's verified on real Windows by CI (not just on Linux):
 - The installer: silent install → smoke test of the installed app (PDF, HEIC, video, audio) → uninstall cleanup.
 - Word/Excel → PDF through LibreOffice on Windows.
 
-What is NOT verified (needs your PC): Microsoft Office conversion (no Office on CI runners),
-how the dialogs look with your Windows theme, and the per-user (no-admin) native menu (see #17).
+What is NOT verified (needs your PC): Microsoft Office conversion (no Office on CI runners), exactly
+how the dialogs look with your Windows theme (they're tested to open/close cleanly in light and dark,
+and screenshotted on Linux), and the Windows 11 full-menu option's visual effect (the setting itself is tested).
 
 Running notes below: what was tried, what happened, what's next.
 
@@ -35,7 +36,7 @@ Running notes below: what was tried, what happened, what's next.
 | 23 | Installer was 179 MB | exclude onnxruntime / pymupdf_layout / pymupdf4llm (optional PyMuPDF extras FileWizard doesn't use) | smoke test still passes; artifact 168 MB zipped (most of the rest is ffmpeg, OpenCV for PDF→Word, PyMuPDF) | ✅ done |
 | 24 | **End-to-end as a real user** | all-users installer → non-elevated process right-clicks 2 PDFs → clicks "Merge selected PDFs" | ✅ merged PDF produced; uninstall leaves nothing behind | ✅ done |
 | 25 | Folder-background menu in classic mode came back empty in the probe | IContextMenu2 fallback | still empty: a background menu probed outside a real Explorer window doesn't fill static cascades (no view site). FileWizard entry itself is present. Test now checks the registered verb + runs its command like Explorer; native mode does the full click | ✅ adjusted |
-| 26 | OCR needed a separate Tesseract install | PyMuPDF has the OCR engine built in; it only needs language data | installer bundles `eng.traineddata` (4 MB); CI smoke-tests OCR with the installed app | testing |
+| 26 | OCR needed a separate Tesseract install | PyMuPDF has the OCR engine built in; it only needs language data | installer bundles `eng.traineddata` (4 MB); CI: the installed app read "Invoice…" from an image | ✅ done |
 | 27 | "Show more options" on Windows 11 | opt-in, per-user, reversible Windows setting that restores the full menu | installer checkbox (unchecked) + settings toggle + CLI; CI round-trips the setting | ✅ done |
 | 22 | All-users installer: "filewizard.exe not found" in Program Files | read log | Inno Setup defaults to 32-bit mode → installed to `Program Files (x86)` and the 32-bit registry view. Set 64-bit install mode | ✅ fixed |
 | 21 | Mixed PDF + JPG selection said "Merge selected PDFs…" | manifest carries an optional label for mixed selections | shows "Combine selected into one PDF…" | ✅ fixed |

@@ -309,6 +309,8 @@ def _build() -> list[Operation]:
         ask=_ask_order("Combine into one PDF", add_types=DOC_LIKE | IMG_IN),
         labels={".pdf": "Merge selected PDFs…"},
         help="Select several files (PDFs, images, Word, PowerPoint, …), right-click one, choose this.")
+    add("data-merge", "Combine selected into one spreadsheet", {".csv", ".tsv", ".xlsx", ".xlsm", ".json"}, "combine",
+        batch=lambda ps, prm: docs.merge_tables(_ordered(ps, prm)))
     add("media-join", "Join selected…", VIDEO_EXTS | AUDIO_EXTS, "combine",
         batch=lambda ps, prm: media.merge(_ordered(ps, prm)),
         ask=_ask_order("Join files", add_types=VIDEO_EXTS | AUDIO_EXTS))
@@ -513,7 +515,7 @@ SECONDARY = {
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MIXED = {"media-soundtrack"}
-MULTI = {"media-soundtrack", "combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h", "img-make-gif",
+MULTI = {"data-merge", "media-soundtrack", "combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h", "img-make-gif",
          "img-slideshow"}
 
 

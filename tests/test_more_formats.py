@@ -676,3 +676,17 @@ def test_trim_margins(tmp_path):
         r = o[0].rect
         assert r.width < 250 and r.height < 100 and "small centred text" in o[0].get_text()
     assert run("pdf-trim", tmp_path / "paper (trimmed).pdf") == 1
+
+
+def test_merge_spreadsheets(tmp_path):
+    import openpyxl
+
+    (tmp_path / "jan.csv").write_text("name,amount\nAda,10\nLin,20\n", encoding="utf-8")
+    (tmp_path / "feb.csv").write_text("amount,name,note\n5,Kai,late\n", encoding="utf-8")
+    assert run("data-merge", tmp_path / "jan.csv", tmp_path / "feb.csv") == 0
+    ws = openpyxl.load_workbook(next(tmp_path.glob("*combined*.xlsx"))).active
+    rows = [[c.value for c in r] for r in ws.iter_rows()]
+    assert rows[0] == ["Source file", "amount", "name", "note"] or rows[0] == ["Source file", "name", "amount", "note"]
+    by_name = {r[rows[0].index("name")]: r for r in rows[1:]}
+    assert by_name["Kai"][rows[0].index("amount")] == 5 and by_name["Kai"][0] == "feb.csv"
+    assert by_name["Ada"][rows[0].index("note")] in ("", None)

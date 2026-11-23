@@ -261,3 +261,49 @@ def table_to_pdf(src: Path) -> list[Path]:
     css = "<style>table{font-size:8pt} th{background:#dde3f0} tr.z td{background:#f4f6fa}</style>"
     html = f"<html><head>{css}</head><body><h3>{esc(src.name)}</h3><table><tr>{head}</tr>{body}</table></body></html>"
     return [html_to_pdf_file(html, sibling(src, None, ".pdf"), src.parent)]
+
+
+def merge_tables(files: list[Path]) -> list[Path]:
+    """Stack rows from several CSV/Excel/JSON files into one sheet, matching columns by name,
+    plus a 'Source file' column."""
+    import openpyxl
+    from openpyxl.styles import Font
+
+    if len(files) < 2:
+        raise UserError("Select at least two spreadsheets to combine.")
+    columns: list[str] = []
+    blocks = []
+    for f in files:
+        for sheet_name, rows in _rows_from(f):
+            if not rows:
+                continue
+            header = [str(h).strip() or f"Column {i + 1}" for i, h in enumerate(rows[0])]
+            for h in header:
+                if h not in columns:
+                    columns.append(h)
+            label = f.name if len(_rows_from(f)) == 1 else f"{f.name} / {sheet_name}"
+            blocks.append((label, header, rows[1:]))
+    if not blocks:
+        raise UserError("The selected files are empty.")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Combined"
+    ws.append(["Source file", *columns])
+    for c in ws[1]:
+        c.font = Font(bold=True)
+    for label, header, rows in blocks:
+        idx = {h: i for i, h in enumerate(header)}
+
+        def cell(row, col):
+            i = idx.get(col)
+            if i is None or i >= len(row):
+                return ""  # this file has no such column
+            v = row[i]
+            return _typed(v) if isinstance(v, str) else v
+
+        for r in rows:
+            ws.append([label, *[cell(r, c) for c in columns]])
+    ws.freeze_panes = "A2"
+    out = sibling(files[0], "combined", ".xlsx")
+    wb.save(out)
+    return [out]

@@ -70,3 +70,7 @@ begin
   end;
   Result := Pos(';' + Uppercase(Param) + ';', ';' + Uppercase(OrigPath) + ';') = 0;
 end;
+
+[Messages]
+FinishedLabel=FileWizard is ready.%n%nRight-click any file (or several) and choose FileWizard.%n%nWindows 11: it's under "Show more options", or hold Shift while you right-click to go straight there.%n%nTip: right-click empty space in a folder to paste a screenshot as a file.
+WelcomeLabel2=This will add FileWizard to your right-click menu: convert, compress, merge, trim and fix files without uploading them anywhere.%n%nEverything runs on your PC.

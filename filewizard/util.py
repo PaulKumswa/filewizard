@@ -52,16 +52,30 @@ def unique_path(path: Path) -> Path:
         i += 1
 
 
+def output_dir(src: Path) -> Path:
+    """Where results go: next to the original (default) or a 'FileWizard' subfolder (setting)."""
+    folder = src.parent
+    try:
+        from .settings import load
+
+        if load().get("output") == "subfolder" and folder.name != "FileWizard":
+            folder = folder / "FileWizard"
+            folder.mkdir(exist_ok=True)
+    except OSError:
+        folder = src.parent
+    return folder
+
+
 def unique_dir(path: Path) -> Path:
-    d = unique_path(path)
+    d = unique_path(output_dir(path) / path.name)
     d.mkdir(parents=True)
     return d
 
 
 def sibling(src: Path, suffix_label: str | None, ext: str) -> Path:
-    """Output path next to `src`: `report (merged).pdf`, or `photo.png` with no label."""
+    """Output path for a result made from `src`: `report (merged).pdf`, or `photo.png` with no label."""
     stem = src.stem if not suffix_label else f"{src.stem} ({suffix_label})"
-    return unique_path(src.with_name(stem + ext))
+    return unique_path(output_dir(src) / (stem + ext))
 
 
 def natural_key(p: Path | str):

@@ -471,3 +471,38 @@ def test_show_details(tmp_path, video, capsys):
     out = capsys.readouterr().out
     assert "64 × 32" in out and "Canon" in out and "GPS location" in out
     assert "320 × 240" in out and "h264" in out
+
+
+def test_image_watermark_and_icons(tmp_path):
+    src = tmp_path / "photo.jpg"
+    Image.new("RGB", (800, 600), (20, 90, 160)).save(src)
+    assert run("img-watermark", src, "-p", "text=© Paul") == 0
+    wm = Image.open(tmp_path / "photo (watermarked).jpg")
+    assert wm.size == (800, 600)
+    assert wm.convert("L").getextrema()[1] > 120  # white text drawn on a dark image
+    assert run("img-icons", src) == 0
+    names = {p.name for p in (tmp_path / "photo (icons)").iterdir()}
+    assert {"favicon.ico", "apple-touch-icon.png", "icon-512.png"} <= names
+    assert Image.open(tmp_path / "photo (icons)" / "icon-512.png").size == (512, 512)
+
+
+def test_burn_and_extract_subtitles(video):
+    assert run("vid-subs", video) == 1  # no .srt yet: friendly message
+    video.with_suffix(".srt").write_text("1\n00:00:00,000 --> 00:00:02,000\nHello there\n", encoding="utf-8")
+    assert run("vid-subs", video) == 0
+    assert media.probe(video.parent / "clip (subtitled).mp4").duration > 2.5
+    assert run("vid-extract-subs", video) == 1  # mp4 without a subtitle track
+
+
+def test_output_subfolder_setting(tmp_path, monkeypatch):
+    from filewizard import settings
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    settings.save({"output": "subfolder"})
+    try:
+        src = tmp_path / "a.png"
+        Image.new("RGB", (10, 10)).save(src)
+        assert run("img-to-jpg", src) == 0
+        assert (tmp_path / "FileWizard" / "a.jpg").exists()
+    finally:
+        settings.save({"output": "beside"})

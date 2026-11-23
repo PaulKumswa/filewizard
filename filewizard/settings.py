@@ -8,6 +8,7 @@ from .util import app_dir
 
 DEFAULTS = {
     "notify": True,          # show the "Done — Open / Show in folder" toast
+    "output": "beside",      # "beside" the original, or "subfolder" (a FileWizard folder next to it)
 }
 
 

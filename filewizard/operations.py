@@ -340,6 +340,8 @@ def _build() -> list[Operation]:
             per_file=lambda p, _, f=f: media.speed(p, f))
     add("media-normalize", "Fix volume (normalize loudness)", VIDEO_EXTS | AUDIO_EXTS, "edit",
         per_file=lambda p, _: media.normalize(p))
+    add("vid-subs", "Burn in subtitles (.srt)", VIDEO_EXTS, "edit", per_file=lambda p, _: media.burn_subtitles(p),
+        help="Needs a .srt file with the same name next to the video")
     add("vid-mute", "Remove sound", VIDEO_EXTS, "edit", per_file=lambda p, _: media.mute(p))
 
     # ===== edit / add =====
@@ -349,6 +351,11 @@ def _build() -> list[Operation]:
     add("img-square", "Pad to square", IMG_IN, "edit", menu=ED, per_file=lambda p, _: images.transform(p, "square"))
     add("img-nobg", "Remove background (AI)", IMG_IN - RAW_EXTS - VECTOR_EXTS, "edit", menu=ED,
         per_file=lambda p, _: images.remove_background(p))
+    add("img-watermark", "Add watermark…", IMG_IN - VECTOR_EXTS, "edit", menu=ED,
+        per_file=lambda p, prm: images.watermark(p, prm["text"]),
+        ask=_ask_text("text", "Watermark text:", "© My Name"), param_names=("text",))
+    add("img-icons", "Make website/app icons", IMG_IN - RAW_EXTS, "edit", menu=ED,
+        per_file=lambda p, _: images.icon_pack(p))
     add("pdf-number", "Add page numbers", PDF_EXTS, "edit", menu=ED, per_file=lambda p, _: pdf.add_page_numbers(p))
     add("pdf-watermark", "Add watermark…", PDF_EXTS, "edit", menu=ED,
         per_file=lambda p, prm: pdf.watermark(p, prm["text"]),
@@ -371,6 +378,8 @@ def _build() -> list[Operation]:
         per_file=lambda p, _: pdf.image_to_text(p))
     add("pdf-extract-images", "Images", PDF_EXTS, "extract", menu=EX, per_file=lambda p, _: pdf.extract_images(p))
     add("vid-snapshot", "A still frame (JPG)", VIDEO_EXTS, "extract", menu=EX, per_file=lambda p, _: media.snapshot(p))
+    add("vid-extract-subs", "Subtitles (.srt)", VIDEO_EXTS, "extract", menu=EX,
+        per_file=lambda p, _: media.extract_subtitles(p))
     add("vid-frames", "Frames (one per second)", VIDEO_EXTS, "extract", menu=EX,
         per_file=lambda p, _: media.extract_frames(p))
     add("img-strip", "Remove location/camera info", IMG_IN - VECTOR_EXTS, "extract",
@@ -420,7 +429,8 @@ SECONDARY = {
     "vid-rotate-180", "vid-rotate-hflip", "vid-rotate-vflip", "media-speed-1_25", "media-speed-1_5",
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
-    "img-under-1024kb", "img-under-custom", "details",
+    "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
+    "vid-extract-subs",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MULTI = {"combine-pdf", "media-join", "img-contact-sheet"}

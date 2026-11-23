@@ -492,3 +492,29 @@ def merge(files: list[Path]) -> list[Path]:
         tmp = _tmp_for(out)
         run([*args, "-filter_complex", graph, "-map", "[a]", *AUDIO_TARGETS[ext], str(tmp)], total, "Joining audio")
     return [_finish(out, tmp)]
+
+
+def burn_subtitles(src: Path) -> list[Path]:
+    """Hard-code subtitles into the picture, from a .srt/.ass/.vtt with the same name next to it."""
+    subs = next((src.with_suffix(e) for e in (".srt", ".ass", ".vtt")
+                 if src.with_suffix(e).exists()), None)
+    if subs is None:
+        raise UserError(f"Put a subtitle file named '{src.stem}.srt' next to the video first.")
+    info = probe(src)
+    out = _out(src, "subtitled", ".mp4")
+    tmp = _tmp_for(out)
+    # ffmpeg's subtitles filter needs ':' and '\\' escaped in the path (Windows drive letters!)
+    esc = str(subs).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
+    run(["-i", str(src), "-map", "0:v:0", "-map", "0:a:0?", "-vf", f"subtitles='{esc}'", *_H264,
+         "-c:a", "copy", "-movflags", "+faststart", str(tmp)], info.duration, f"Adding subtitles to {src.name}")
+    return [_finish(out, tmp)]
+
+
+def extract_subtitles(src: Path) -> list[Path]:
+    r = subprocess.run([ffmpeg(), "-hide_banner", "-i", str(src)], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+    if ": Subtitle:" not in r.stderr:
+        raise UserError(f"{src.name} has no subtitle tracks.")
+    out = _out(src, None, ".srt")
+    run(["-i", str(src), "-map", "0:s:0", str(out)])
+    return [out]

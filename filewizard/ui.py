@@ -551,6 +551,12 @@ def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None
     notify = tk.BooleanVar(value=cfg.get("notify", True))
     ttk.Checkbutton(frm, text="Show a “Done” notification with Open / Show in folder",
                     variable=notify, command=lambda: save({"notify": notify.get()})).pack(anchor="w")
+    out_mode = tk.StringVar(value=cfg.get("output", "beside"))
+    ttk.Label(frm, text="Save results:").pack(anchor="w", pady=(10, 0))
+    ttk.Radiobutton(frm, text="Next to the original file", value="beside", variable=out_mode,
+                    command=lambda: save({"output": out_mode.get()})).pack(anchor="w", padx=12)
+    ttk.Radiobutton(frm, text="In a “FileWizard” folder next to it", value="subfolder", variable=out_mode,
+                    command=lambda: save({"output": out_mode.get()})).pack(anchor="w", padx=12)
 
     status = ttk.Label(frm, text="", foreground=ACCENT)
 

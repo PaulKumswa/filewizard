@@ -453,3 +453,63 @@ def describe(path: Path) -> str:
     except Exception as e:
         lines.append(f"(couldn't read image details: {e})")
     return "\n".join(lines)
+
+
+def watermark(src: Path, text: str) -> list[Path]:
+    """Repeating faint diagonal text across the image (protects photos you send out)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    text = text.strip()
+    if not text:
+        raise UserError("Watermark text can't be empty.")
+    img = open_image(src).convert("RGBA")
+    size = max(14, min(img.size) // 14)
+    font = None
+    for name in ("segoeuib.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
+        try:
+            font = ImageFont.truetype(name, size)
+            break
+        except OSError:
+            continue
+    font = font or ImageFont.load_default(size=size)
+    diag = int((img.width ** 2 + img.height ** 2) ** 0.5)
+    layer = Image.new("RGBA", (diag, diag), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    tw = d.textlength(text, font=font)
+    step_x, step_y = int(tw + size * 2), size * 4
+    for row, y in enumerate(range(0, diag, step_y)):
+        for x in range(-step_x + (row % 2) * step_x // 2, diag, step_x):
+            d.text((x, y), text, font=font, fill=(255, 255, 255, 70), stroke_width=max(1, size // 18),
+                   stroke_fill=(0, 0, 0, 50))
+    layer = layer.rotate(30, resample=Image.BICUBIC)
+    left, top = (diag - img.width) // 2, (diag - img.height) // 2
+    img.alpha_composite(layer.crop((left, top, left + img.width, top + img.height)))
+    ext = out_ext(src)
+    return [save_as(img, sibling(src, "watermarked", ext), ext)]
+
+
+def icon_pack(src: Path) -> list[Path]:
+    """Everything a website or app needs: favicon.ico + PNG icons in standard sizes."""
+    from PIL import Image
+
+    from .util import unique_dir
+
+    img = open_image(src).convert("RGBA")
+    side = max(img.size)
+    square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    square.paste(img, ((side - img.width) // 2, (side - img.height) // 2))
+    folder = unique_dir(src.with_name(f"{src.stem} (icons)"))
+    outs = []
+    for px, name in ((16, "favicon-16.png"), (32, "favicon-32.png"), (180, "apple-touch-icon.png"),
+                     (192, "icon-192.png"), (512, "icon-512.png")):
+        p = folder / name
+        square.resize((px, px), Image.LANCZOS).save(p, "PNG", optimize=True)
+        outs.append(p)
+    ico = folder / "favicon.ico"
+    square.save(ico, "ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
+    outs.append(ico)
+    (folder / "how-to-use.html").write_text(
+        '<link rel="icon" href="/favicon.ico" sizes="any">\n'
+        '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n'
+        '<link rel="apple-touch-icon" href="/apple-touch-icon.png">\n', encoding="utf-8")
+    return [folder]

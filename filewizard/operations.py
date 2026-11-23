@@ -435,6 +435,8 @@ def _build() -> list[Operation]:
     add("img-gray", "Black & white", IMG_IN, "edit", menu=ED, per_file=lambda p, _: images.transform(p, "gray"))
     add("img-trim", "Crop away borders", IMG_IN, "edit", menu=ED, per_file=lambda p, _: images.transform(p, "trim"))
     add("img-square", "Pad to square", IMG_IN, "edit", menu=ED, per_file=lambda p, _: images.transform(p, "square"))
+    add("img-white-bg", "Make white background transparent", IMG_IN - RAW_EXTS, "edit", menu=ED,
+        per_file=lambda p, _: images.white_to_transparent(p))
     add("img-nobg", "Remove background (AI)", IMG_IN - RAW_EXTS - VECTOR_EXTS, "edit", menu=ED,
         per_file=lambda p, _: images.remove_background(p))
     add("img-watermark", "Add watermark…", IMG_IN - VECTOR_EXTS, "edit", menu=ED,

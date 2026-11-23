@@ -607,3 +607,27 @@ def make_slideshow(files: list[Path], seconds_per_image: float = 3.0) -> list[Pa
         media.run([*args, "-filter_complex", graph, "-map", f"[{last}]", "-c:v", "libx264", "-crf", "20",
                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)], total, "Making slideshow")
     return [out]
+
+
+def white_to_transparent(src: Path, tolerance: int = 28) -> list[Path]:
+    """Make a plain light background transparent by flood-filling from the edges (white inside
+    the subject, like a logo's letters' holes reachable only through the subject, stays)."""
+    from PIL import Image, ImageDraw
+
+    img = open_image(src).convert("RGBA")
+    w, h = img.size
+    marker = (255, 0, 255, 0)
+    seeds = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1), (w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2)]
+    filled = False
+    for x, y in seeds:
+        r, g, b, a = img.getpixel((x, y))
+        if a and min(r, g, b) >= 255 - tolerance * 2 and img.getpixel((x, y)) != marker:
+            ImageDraw.floodfill(img, (x, y), marker, thresh=tolerance)
+            filled = True
+    if not filled:
+        raise UserError(f"{src.name} doesn't have a plain light background at its edges.")
+    data = [(0, 0, 0, 0) if p == marker else p for p in img.getdata()]
+    img.putdata(data)
+    out = sibling(src, "transparent", ".png")
+    img.save(out, "PNG", optimize=True)
+    return [out]

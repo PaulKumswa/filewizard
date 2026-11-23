@@ -717,3 +717,17 @@ def test_video_crop_vertical(video):
     assert run("vid-crop-9x16", video) == 0
     info = media.probe(video.parent / "clip (vertical).mp4")
     assert abs(info.width / info.height - 9 / 16) < 0.02 and info.height == 240
+
+
+def test_white_background_transparent(tmp_path):
+    from PIL import ImageDraw
+
+    src = tmp_path / "logo.jpg"
+    im = Image.new("RGB", (200, 120), "white")
+    d = ImageDraw.Draw(im)
+    d.rectangle((40, 30, 160, 90), fill=(20, 60, 200))
+    d.rectangle((90, 50, 110, 70), fill="white")  # white enclosed by the logo must stay
+    im.save(src, quality=95)
+    assert run("img-white-bg", src) == 0
+    out = Image.open(tmp_path / "logo (transparent).png")
+    assert out.getpixel((5, 5))[3] == 0 and out.getpixel((100, 60))[3] == 255 and out.getpixel((50, 40))[3] == 255

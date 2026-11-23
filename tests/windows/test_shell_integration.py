@@ -337,3 +337,11 @@ def test_native_hidden_actions(tmp_path):
         assert "Split into single pages" not in text and "Extract pages" in text
     finally:
         set_hidden_actions(set())
+
+
+@native_only
+def test_native_compare_only_for_exactly_two(tmp_path):
+    two = [_pdf(tmp_path / f"c{i}.pdf") for i in range(2)]
+    three = two + [_pdf(tmp_path / "c2.pdf")]
+    assert any("Compare the two" in ln for ln in shell_probe.dump(two))
+    assert not any("Compare the two" in ln for ln in shell_probe.dump(three))

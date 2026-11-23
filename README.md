@@ -48,6 +48,16 @@ Results are saved **next to the original** (or in a `FileWizard` subfolder, your
 `photo (2).png`). When a job finishes, a small notification offers **Open** and **Show in folder**.
 Long jobs show a progress bar with **Cancel**.
 
+## Screenshots
+
+<sub>Captured from the real dialogs on a Linux test display; on Windows they use the native theme.</sub>
+
+| Pick pages by clicking thumbnails | Sign a PDF | Search every action ("All actions…") |
+|---|---|---|
+| <img src="docs/screenshots/pages.png" width="300"> | <img src="docs/screenshots/sign.png" width="220"> | <img src="docs/screenshots/palette.png" width="300"> |
+| **Order files before merging** | **Progress with Cancel** | **Done: Open / Show in folder / Undo** |
+| <img src="docs/screenshots/order.png" width="300"> | <img src="docs/screenshots/progress.png" width="300"> | <img src="docs/screenshots/toast.png" width="260"> |
+
 ## Install
 
 **Easiest: the installer (no Python needed).**

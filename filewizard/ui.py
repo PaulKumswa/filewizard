@@ -388,7 +388,32 @@ def open_file(path: Path) -> None:
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
 
 
-def notify_done(outputs: list[Path], summary: str = "") -> None:
+def recycle(paths: list[Path]) -> None:
+    """Send files/folders to the Recycle Bin (recoverable), not a permanent delete."""
+    paths = [p for p in paths if p.exists()]
+    if not paths:
+        return
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        class SHFILEOPSTRUCTW(ctypes.Structure):
+            _fields_ = [("hwnd", wintypes.HWND), ("wFunc", wintypes.UINT), ("pFrom", wintypes.LPCWSTR),
+                        ("pTo", wintypes.LPCWSTR), ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", wintypes.BOOL),
+                        ("hNameMappings", ctypes.c_void_p), ("lpszProgressTitle", wintypes.LPCWSTR)]
+
+        FO_DELETE, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, FOF_SILENT = 3, 0x40, 0x10, 0x4
+        op = SHFILEOPSTRUCTW(wFunc=FO_DELETE, pFrom="\0".join(str(p) for p in paths) + "\0\0",
+                             fFlags=FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT)
+        ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+    else:
+        import shutil
+
+        for p in paths:
+            shutil.rmtree(p) if p.is_dir() else p.unlink()
+
+
+def notify_done(outputs: list[Path], summary: str = "", undoable: bool = True) -> None:
     """Small toast in the bottom-right corner: what was made, with Open / Show in folder."""
     if not interactive() or not outputs or os.environ.get("FILEWIZARD_NO_NOTIFY") == "1":
         return
@@ -425,6 +450,8 @@ def notify_done(outputs: list[Path], summary: str = "") -> None:
     if first.is_file():
         ttk.Button(row, text="Open", command=lambda: act(lambda: open_file(first))).pack(side="left")
     ttk.Button(row, text="Show in folder", command=lambda: act(lambda: reveal(first))).pack(side="left", padx=6)
+    if undoable:
+        ttk.Button(row, text="Undo", command=lambda: act(lambda: recycle(outputs))).pack(side="left", padx=(0, 6))
     ttk.Button(row, text="✕", width=3, command=root.destroy).pack(side="left")
     root.update_idletasks()
     w, h = max(root.winfo_reqwidth(), 340), root.winfo_reqheight()

@@ -1,3 +1,5 @@
+<img src="docs/icon.png" width="96" align="right" alt="">
+
 # FileWizard
 
 **Right-click any file → FileWizard ▸ → done.** Convert, compress, merge, trim and fix files

@@ -491,3 +491,17 @@ def test_pages_to_spec():
     assert pages_to_spec([3]) == "4"
     assert pages_to_spec([]) == ""
     assert parse_page_ranges(pages_to_spec([0, 2, 3, 9]), 10) == [0, 2, 3, 9]
+
+
+def test_recycle_removes_only_given_outputs(tmp_path):
+    from filewizard.ui import recycle
+
+    keep = tmp_path / "original.pdf"
+    keep.write_text("x")
+    made = tmp_path / "original (merged).pdf"
+    made.write_text("y")
+    folder = tmp_path / "original (pages)"
+    folder.mkdir()
+    (folder / "p1.pdf").write_text("z")
+    recycle([made, folder, tmp_path / "missing.pdf"])
+    assert keep.exists() and not made.exists() and not folder.exists()

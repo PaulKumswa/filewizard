@@ -123,7 +123,8 @@ def cmd_run(args) -> int:
         ui.message(text, error=True) if args.shell else print(text, file=sys.stderr)
         return 1
     if args.shell:
-        ui.notify_done(outputs)
+        # rename moves the originals, so "undo" would delete the user's files: no Undo there
+        ui.notify_done(outputs, undoable=op.id != "rename")
     return 0
 
 

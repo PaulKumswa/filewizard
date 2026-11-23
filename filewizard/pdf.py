@@ -772,3 +772,19 @@ font-size:13px;border-collapse:collapse;width:100%}} td{{padding:2px 6px;vertica
     out = sibling(files[0], "comparison", ".html")
     out.write_text(page, encoding="utf-8")
     return [out]
+
+
+def scan_to_searchable(files: list[Path]) -> list[Path]:
+    """Photos/scans of pages -> one PDF with a text layer (searchable, copyable)."""
+    _need_tesseract()
+    combined = images_to_pdf(files, sibling(files[0], "scan tmp", ".pdf"))[0]
+    try:
+        out = ocr(combined)[0]
+        final = sibling(files[0], "searchable", ".pdf")
+        out.replace(final)
+        return [final]
+    finally:
+        try:
+            combined.unlink()
+        except OSError:
+            pass

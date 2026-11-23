@@ -806,3 +806,24 @@ def test_unicode_and_emoji_filenames(tmp_path, clip):
     vid = tmp_path / f"{name}.mp4"
     shutil.copy(clip, vid)
     assert run("aud-to-mp3", vid) == 0 and (tmp_path / f"{name}.mp3").exists()
+
+
+@pytest.mark.skipif(not pdf.tessdata(), reason="Tesseract data not installed")
+def test_photos_to_searchable_pdf(tmp_path):
+    from PIL import ImageDraw, ImageFont
+
+    files = []
+    for i, word in enumerate(("Receipt", "Invoice")):
+        im = Image.new("RGB", (1200, 400), "white")
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", 80)
+        except OSError:
+            font = ImageFont.load_default(size=80)
+        ImageDraw.Draw(im).text((60, 150), f"{word} number {i + 1}", fill="black", font=font)
+        p = tmp_path / f"photo{i}.jpg"
+        im.save(p)
+        files.append(p)
+    assert run("img-scan-pdf", *files) == 0
+    with pymupdf.open(tmp_path / "photo0 (searchable).pdf") as d:
+        assert d.page_count == 2 and "Invoice" in d[1].get_text()
+    assert not list(tmp_path.glob("*scan tmp*"))

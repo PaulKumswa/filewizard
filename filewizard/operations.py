@@ -328,6 +328,9 @@ def _build() -> list[Operation]:
     add("media-join", "Join selected…", VIDEO_EXTS | AUDIO_EXTS, "combine",
         batch=lambda ps, prm: media.merge(_ordered(ps, prm)),
         ask=_ask_order("Join files", add_types=VIDEO_EXTS | AUDIO_EXTS))
+    add("img-scan-pdf", "Combine into a searchable PDF (OCR)", IMG_IN - VECTOR_EXTS, "combine",
+        batch=lambda ps, prm: pdf.scan_to_searchable(_ordered(ps, prm)), ask=_ask_order("Searchable PDF"),
+        help="Photos of documents or receipts -> one PDF you can search and copy text from")
     ST = ("Stitch into one image",)
     add("media-soundtrack", "Use the audio as the video's soundtrack", VIDEO_EXTS | AUDIO_EXTS, "combine",
         batch=lambda ps, _: media.replace_audio(ps),
@@ -544,7 +547,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-to-pptx", "img-white-bg", "settings", "pdf-compare", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-to-pptx", "img-white-bg", "settings", "pdf-compare", "img-scan-pdf", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MIXED = {"media-soundtrack"}

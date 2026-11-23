@@ -101,6 +101,10 @@ Check what's available: Start menu → *FileWizard settings* → *Check optional
 The new short right-click menu only accepts apps shipped as signed Store packages, so
 FileWizard is under **"Show more options"**, or press **Shift + right-click** to go straight there.
 
+Prefer one click? Tick *"Windows 11: always show the full right-click menu"* in the installer or in
+FileWizard settings. It's a per-user Windows setting that brings back the full menu everywhere
+(reversible from the same place).
+
 ## Two menu modes
 
 | | **Full menu** (installer) | **Classic** (`pip` install) |

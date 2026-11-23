@@ -358,10 +358,12 @@ def _install_native(winreg, dll: Path, command: str, icon: str | None) -> None:
     for parent in HANDLER_PARENTS:
         with winreg.CreateKeyEx(hk, rf"{parent}\{APP_NAME}", 0, winreg.KEY_WRITE) as k:
             winreg.SetValueEx(k, "", 0, winreg.REG_SZ, CLSID)
-    # Only consulted when the "approved extensions only" policy is on; harmless otherwise.
-    with winreg.CreateKeyEx(hk, r"Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved", 0,
-                            winreg.KEY_WRITE) as k:
-        winreg.SetValueEx(k, CLSID, 0, winreg.REG_SZ, f"{APP_NAME} context menu")
+    # Consulted when the "approved extensions only" policy is on (and, for elevated shells, from
+    # the machine hive); harmless otherwise.
+    for hive in {hk, winreg.HKEY_CURRENT_USER}:
+        with winreg.CreateKeyEx(hive, r"Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved",
+                                0, winreg.KEY_WRITE) as k:
+            winreg.SetValueEx(k, CLSID, 0, winreg.REG_SZ, f"{APP_NAME} context menu")
 
 
 def _uninstall_native(winreg) -> bool:
@@ -375,13 +377,13 @@ def _uninstall_native(winreg) -> bool:
             except FileNotFoundError:
                 continue
             _delete_tree(winreg, hk, path)
-    hk = winreg.HKEY_CURRENT_USER
-    try:
-        with winreg.OpenKey(hk, r"Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved", 0,
-                            winreg.KEY_ALL_ACCESS) as k:
-            winreg.DeleteValue(k, CLSID)
-    except OSError:
-        pass
+    for hk in hives:
+        try:
+            with winreg.OpenKey(hk, r"Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved", 0,
+                                winreg.KEY_ALL_ACCESS) as k:
+                winreg.DeleteValue(k, CLSID)
+        except OSError:
+            pass
     return found
 
 

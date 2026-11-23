@@ -479,8 +479,9 @@ def _build() -> list[Operation]:
     add("paste-image", "Paste clipboard image as file", {BACKGROUND}, "more",
         per_file=lambda p, _: files.paste_image(p), help="Saves a screenshot (Win+Shift+S) as a PNG here")
     add("paste-text", "Paste clipboard text as .txt", {BACKGROUND}, "more", per_file=lambda p, _: files.paste_text(p))
-    add("folder-combine-pdf", "Combine PDFs/images inside into one PDF", {DIR, BACKGROUND}, "more", menu=MORE,
-        labels={BACKGROUND: "Combine PDFs/images in this folder into one PDF"},
+    add("bg-combine-pdf", "Combine PDFs/images in this folder into one PDF", {BACKGROUND}, "more",
+        per_file=lambda p, _: pdf.combine_any(_folder_docs(p)))
+    add("folder-combine-pdf", "Combine PDFs/images inside into one PDF", {DIR}, "more", menu=MORE,
         per_file=lambda p, _: pdf.combine_any(_folder_docs(p)))
     return ops
 

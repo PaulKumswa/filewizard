@@ -78,6 +78,11 @@ follow your light/dark setting (dark mode shown below the table).</sub>
 **Easiest: the installer (no Python needed).**
 Download `FileWizard-Setup.exe` from the latest successful
 [CI run](../../actions/workflows/ci.yml) (Artifacts → *FileWizard-Setup*), run it, done.
+Because the installer isn't code-signed (that needs a paid certificate), Windows SmartScreen will
+say *"Windows protected your PC"* the first time: click **More info → Run anyway**. Some antivirus
+tools are also suspicious of unsigned apps built with PyInstaller; the full source and the CI build
+log that produced the file are in this repo if you want to check it.
+
 It asks for admin rights once (it installs to Program Files for all users, because Windows reliably
 loads all-users menu extensions: we measured this in CI) and puts the full menu in place.
 

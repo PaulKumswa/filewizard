@@ -225,7 +225,10 @@ def _safe_console() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     _safe_console()
+    from . import __version__
+
     ap = argparse.ArgumentParser(prog="filewizard", description="Right-click file conversions and PDF tools.")
+    ap.add_argument("--version", action="version", version=f"FileWizard {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     r = sub.add_parser("run", help="run an action on files")

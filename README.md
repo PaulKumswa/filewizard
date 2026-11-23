@@ -39,8 +39,8 @@ The menu adapts to what you right-clicked and how many files are selected.
 | **Word / PowerPoint / Excel** (incl. old .doc/.ppt/.xls and OpenDocument) | Convert to PDF · slides/pages → PNG images · Word → text · old formats → .docx/.pptx/.xlsx · **Compress** (shrinks embedded photos) · Combine into one PDF |
 | **Ebooks** — EPUB, MOBI, FB2, XPS, CBZ | Convert to PDF or text |
 | **Markdown / HTML / text** | Convert to PDF (Markdown also to a styled web page) |
-| **Data** — CSV, TSV, Excel, JSON | CSV → printable PDF table · Convert between CSV ⇄ Excel ⇄ JSON (keeps leading zeros, handles `;` CSVs and Windows encodings) |
-| **Archives** — ZIP, 7z, TAR, GZ, RAR, ISO… | Extract here · Extract to folder (asks for the password if needed; protected against malicious "zip-slip" archives) · Combine several spreadsheets into one |
+| **Data** — CSV, TSV, Excel, JSON | CSV → printable PDF table · Combine several spreadsheets into one · Convert between CSV ⇄ Excel ⇄ JSON (keeps leading zeros, handles `;` CSVs and Windows encodings) |
+| **Archives** — ZIP, 7z, TAR, GZ, RAR, ISO… | Extract here · Extract to folder (asks for the password if needed; protected against malicious "zip-slip" archives) |
 | **Any file or folder** | Compress to ZIP / 7z · Rename selected… (`Trip {n}` → Trip 01, Trip 02…; `{taken}` = photo date) · Show details (size, dimensions, duration, camera, **GPS warning**) · Checksum (SHA-256) · Folders: combine all PDFs/images inside into one PDF |
 | **A mix** (e.g. 2 PDFs + a photo + a Word doc) | **Combine selected into one PDF**, with a bookmark per file |
 | **Empty space inside a folder** | **Paste clipboard image as file** (Win+Shift+S → right-click → PNG) · Paste clipboard text as .txt · Combine the PDFs/images in this folder into one PDF |

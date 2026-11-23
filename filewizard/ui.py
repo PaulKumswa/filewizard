@@ -675,6 +675,23 @@ def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None
     ttk.Radiobutton(frm, text="Classic: simpler, top actions + “All actions…” (use if the full menu doesn't show)",
                     value="classic", variable=menu_style, command=set_style).pack(anchor="w", padx=12)
 
+    try:
+        from .shell_menu import is_windows_11, restart_explorer, set_win11_full_menu, win11_full_menu_enabled
+
+        if is_windows_11():
+            full = tk.BooleanVar(value=win11_full_menu_enabled())
+
+            def toggle_full():
+                do(lambda: set_win11_full_menu(full.get()), "Saved. Restart Explorer to see the change.")
+
+            w11 = ttk.Frame(frm)
+            w11.pack(fill="x", pady=(10, 0))
+            ttk.Checkbutton(w11, text="Windows 11: always show the full right-click menu (no “Show more options”)",
+                            variable=full, command=toggle_full).pack(side="left")
+            ttk.Button(w11, text="Restart Explorer", command=restart_explorer).pack(side="left", padx=8)
+    except Exception:
+        pass
+
     row = ttk.Frame(frm)
     row.pack(fill="x", pady=(14, 4))
     ttk.Button(row, text="Repair right-click menu", command=lambda: do(reinstall, "Menu re-installed ✓")).pack(side="left")

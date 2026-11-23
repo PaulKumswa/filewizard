@@ -294,3 +294,18 @@ def test_folder_background_menu_and_paste_text(tmp_path):
     cm.invoke(wid)
     [out] = _wait_for(tmp_path, "Pasted text*.txt")
     assert out.read_text(encoding="utf-8") == "hello from the clipboard"
+
+
+def test_win11_full_menu_toggle_roundtrip():
+    from filewizard import shell_menu
+
+    if not shell_menu.is_windows_11():
+        pytest.skip("Windows 11-class build only")
+    before = shell_menu.win11_full_menu_enabled()
+    try:
+        shell_menu.set_win11_full_menu(True)
+        assert shell_menu.win11_full_menu_enabled()
+        shell_menu.set_win11_full_menu(False)
+        assert not shell_menu.win11_full_menu_enabled()
+    finally:
+        shell_menu.set_win11_full_menu(before)

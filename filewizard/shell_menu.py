@@ -613,3 +613,44 @@ def render_menu(ext: str) -> str:
 
     walk(base, 1)
     return "\n".join(lines)
+
+
+# ---------- Windows 11: always show the full menu (opt-in) ----------
+
+_WIN11_CLASSIC_KEY = r"Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+
+
+def is_windows_11() -> bool:
+    return sys.platform == "win32" and sys.getwindowsversion().build >= 22000
+
+
+def win11_full_menu_enabled() -> bool:
+    if not is_windows_11():
+        return False
+    winreg = _winreg()
+    try:
+        winreg.OpenKey(winreg.HKEY_CURRENT_USER, _WIN11_CLASSIC_KEY).Close()
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def set_win11_full_menu(enable: bool) -> None:
+    """Windows 11 only, per user, reversible: make right-click show the full menu directly
+    (no "Show more options"), so FileWizard is one click away. Takes effect after Explorer restarts."""
+    if not is_windows_11():
+        raise SystemExit("This setting only applies to Windows 11.")
+    winreg = _winreg()
+    if enable:
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, _WIN11_CLASSIC_KEY, 0, winreg.KEY_WRITE) as k:
+            winreg.SetValueEx(k, "", 0, winreg.REG_SZ, "")  # empty default value = use the classic menu
+    else:
+        _delete_tree(winreg, winreg.HKEY_CURRENT_USER, _WIN11_CLASSIC_KEY.rsplit("\\", 1)[0])
+    _say(f"Windows 11 full right-click menu {'on' if enable else 'off'} (restart Explorer to apply)")
+
+
+def restart_explorer() -> None:
+    import subprocess
+
+    subprocess.run(["taskkill", "/f", "/im", "explorer.exe"], capture_output=True)
+    subprocess.Popen(["explorer.exe"])

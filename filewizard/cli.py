@@ -265,6 +265,19 @@ def main(argv: list[str] | None = None) -> int:
     m.set_defaults(fn=lambda a: print(__import__("filewizard.shell_menu", fromlist=["x"]).render_menu(a.ext)) or 0)
     sub.add_parser("doctor", help="check optional dependencies").set_defaults(fn=cmd_doctor)
     sub.add_parser("settings", help="open the settings window").set_defaults(fn=cmd_settings)
+    w11 = sub.add_parser("win11-menu", help="Windows 11: always show the full right-click menu (on/off)")
+    w11.add_argument("state", choices=["on", "off"])
+    w11.add_argument("--restart-explorer", action="store_true")
+
+    def _w11(a):
+        from .shell_menu import restart_explorer, set_win11_full_menu
+
+        set_win11_full_menu(a.state == "on")
+        if a.restart_explorer:
+            restart_explorer()
+        return 0
+
+    w11.set_defaults(fn=_w11)
     e = sub.add_parser("export-reg", help="write the menu's registry entries to a .reg file")
     e.add_argument("out", nargs="?")
     e.set_defaults(fn=cmd_export_reg)

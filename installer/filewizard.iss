@@ -31,6 +31,9 @@ SolidCompression=yes
 WizardStyle=modern
 ChangesEnvironment=yes
 
+[Tasks]
+Name: "win11menu"; Description: "Windows 11: always show the full right-click menu, so FileWizard is one click away (you can change this later in FileWizard settings)"; Flags: unchecked; Check: IsWindows11
+
 [Files]
 Source: "..\dist\FileWizard\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 ; Explorer keeps the shell extension loaded (locked), so each version gets its own file name
@@ -44,6 +47,8 @@ Name: "{group}\Uninstall FileWizard"; Filename: "{uninstallexe}"
 
 [Run]
 Filename: "{app}\filewizard.exe"; Parameters: "install"; Flags: runhidden waituntilterminated; StatusMsg: "Adding FileWizard to the right-click menu..."
+
+Filename: "{app}\filewizard.exe"; Parameters: "win11-menu on --restart-explorer"; Flags: runhidden waituntilterminated; Tasks: win11menu
 
 [UninstallDelete]
 ; created by "filewizard install" after setup, so the uninstaller must be told about them
@@ -59,6 +64,11 @@ Filename: "{app}\filewizard.exe"; Parameters: "uninstall"; Flags: runhidden wait
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath(ExpandConstant('{app}'))
 
 [Code]
+function IsWindows11: Boolean;
+begin
+  Result := (GetWindowsVersion shr 24 >= 10) and ((GetWindowsVersion and $FFFF) >= 22000);
+end;
+
 function NeedsAddPath(Param: string): boolean;
 var
   OrigPath: string;

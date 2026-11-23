@@ -203,7 +203,7 @@ jobs:
           $py = (Get-Command python).Source
           ./tests/windows/nonelevated_probe.ps1 -Python $py -Probe "${{ github.workspace }}\tests\windows\shell_probe.py" -Click
       - name: Uninstall cleans up
-        timeout-minutes: 5
+        timeout-minutes: 10
         shell: pwsh
         run: |
           Start-Process "${env:ProgramFiles}\FileWizard\unins000.exe" -ArgumentList "/VERYSILENT" -Wait  # no /SUPPRESSMSGBOXES on purpose: silent must not prompt

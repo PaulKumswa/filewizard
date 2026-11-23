@@ -34,6 +34,9 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: python -m pip install ".[dev]"
+      - name: Cascade-limit experiment (informational)
+        run: python tests/windows/menu_limit_experiment.py
+        continue-on-error: true
       - name: Shell integration tests
         run: python -m pytest -v -s tests/windows
         env:
@@ -43,5 +46,69 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: filewizard-log
+          path: ~/AppData/Local/FileWizard/filewizard.log
+          if-no-files-found: ignore
+
+  installer:
+    name: build + test Windows installer
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tools
+        run: python -m pip install ".[dev]" pyinstaller
+      - name: Freeze with PyInstaller
+        working-directory: installer
+        run: pyinstaller filewizard.spec --noconfirm --distpath ../dist --workpath ../build
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc installer\filewizard.iss
+          Get-Item dist\FileWizard-Setup.exe | Select-Object Name, Length
+      - name: Silent install
+        shell: pwsh
+        run: |
+          Start-Process dist\FileWizard-Setup.exe -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
+          $app = "$env:LOCALAPPDATA\Programs\FileWizard"
+          & "$app\filewizard.exe" doctor
+          & "$app\filewizard.exe" menu .pdf
+          reg query "HKCU\Software\Classes\SystemFileAssociations\.pdf\shell\FileWizard" /s | Select-Object -First 12
+      - name: Smoke-test the installed exe
+        shell: pwsh
+        run: |
+          $app = "$env:LOCALAPPDATA\Programs\FileWizard"
+          python -c "import pymupdf; d=pymupdf.open(); d.new_page().insert_text((72,72),'hi'); d.save('smoke.pdf')"
+          & "$app\filewizard.exe" run pdf-to-png smoke.pdf
+          if (-not (Test-Path smoke.png)) { throw "pdf-to-png failed in frozen build" }
+          python -c "from PIL import Image; Image.new('RGB',(64,48),'red').save('smoke.jpg')"
+          & "$app\filewizard.exe" run img-to-heic smoke.jpg
+          & "$app\filewizard.exe" run vid-to-gif smoke.jpg 2>$null; $LASTEXITCODE = 0
+          if (-not (Test-Path smoke.heic)) { throw "heic failed in frozen build" }
+      - name: Real shell clicks against the installed app
+        run: python -m pytest -v -s tests/windows
+        env:
+          FILEWIZARD_SHELL_TEST: "1"
+          FILEWIZARD_ALREADY_INSTALLED: "1"
+      - name: Uninstall cleans up
+        shell: pwsh
+        run: |
+          Start-Process "$env:LOCALAPPDATA\Programs\FileWizard\unins000.exe" -ArgumentList "/VERYSILENT" -Wait
+          Start-Sleep 3
+          $left = reg query "HKCU\Software\Classes\SystemFileAssociations\.pdf\shell\FileWizard" 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "menu still registered after uninstall" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FileWizard-Setup
+          path: dist/FileWizard-Setup.exe
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-log
           path: ~/AppData/Local/FileWizard/filewizard.log
           if-no-files-found: ignore

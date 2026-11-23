@@ -180,7 +180,16 @@ def write_icon() -> str | None:
     return str(p)
 
 
-def command_prefix(launcher: Path) -> str:
+def frozen() -> bool:
+    """True when running from the standalone installer build (PyInstaller)."""
+    return bool(getattr(sys, "frozen", False))
+
+
+def command_prefix(launcher: Path | None) -> str:
+    if frozen():
+        exe = Path(sys.executable)
+        windowed = exe.with_name("filewizardw.exe")
+        return f'"{windowed if windowed.exists() else exe}" run --shell'
     return f'"{pythonw()}" "{launcher}"'
 
 
@@ -254,7 +263,7 @@ def _is_store_python() -> bool:
 
 def install() -> None:
     winreg = _winreg()
-    if _is_store_python():
+    if _is_store_python() and not frozen():
         # Store apps get a private, virtualized copy of HKCU and AppData: our writes would
         # "succeed" but Explorer would never see them.
         raise SystemExit(
@@ -263,7 +272,7 @@ def install() -> None:
             "(tick 'Add python.exe to PATH'), then run install.bat again."
         )
     uninstall(quiet=True)  # start clean so renamed/removed actions don't linger
-    launcher = write_launcher()
+    launcher = None if frozen() else write_launcher()
     icon = write_icon()
     entries = build_entries(command_prefix(launcher), icon)
     hk = winreg.HKEY_CURRENT_USER
@@ -274,7 +283,7 @@ def install() -> None:
                 winreg.SetValueEx(k, name, 0, types[typ], val)
     _refresh_explorer()
     print(f"Installed the {APP_NAME} menu for {len(ALL_EXTS)} file types.")
-    print(f"Launcher: {launcher}")
+    print(f"Command: {command_prefix(launcher)}")
     print("Right-click a PDF, image or Office file. On Windows 11, it's under 'Show more options'"
           " (or hold Shift while right-clicking).")
 

@@ -25,6 +25,9 @@ if sys.platform == "win32":
 def installed():
     os.environ["FILEWIZARD_NONINTERACTIVE"] = "1"  # inherited by processes the shell launches
     os.environ["FILEWIZARD_NO_NOTIFY"] = "1"
+    if os.environ.get("FILEWIZARD_ALREADY_INSTALLED") == "1":  # testing the real installer build
+        yield
+        return
     from filewizard import shell_menu
 
     shell_menu.install()

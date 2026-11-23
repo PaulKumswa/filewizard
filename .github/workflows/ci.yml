@@ -56,6 +56,17 @@ jobs:
           FILEWIZARD_SHELL_TEST: "1"
           FILEWIZARD_MENU_MODE: native
           FILEWIZARD_NATIVE_DLL: ${{ github.workspace }}\native\fwshell.dll
+          # the runner is elevated, and elevated processes ignore per-user COM classes
+          FILEWIZARD_REGISTER_MACHINE: "1"
+      - name: Per-user native menu, seen by a NON-elevated process
+        shell: pwsh
+        env:
+          FILEWIZARD_NATIVE_DLL: ${{ github.workspace }}\native\fwshell.dll
+        run: |
+          python -m filewizard install
+          $py = (Get-Command python).Source
+          ./tests/windows/nonelevated_probe.ps1 -Python $py -Probe "${{ github.workspace }}\tests\windows\shell_probe.py"
+          python -m filewizard uninstall
       - name: Upload DLL
         uses: actions/upload-artifact@v4
         with:

@@ -339,8 +339,16 @@ def find_native_dll() -> Path | None:
     return next((c for c in candidates if c.exists()), None)
 
 
+def _machine_wide() -> bool:
+    """Register the COM class for all users (HKLM, needs admin). Elevated processes ignore
+    per-user COM registrations, so admin tools / CI need this; normal Explorer doesn't."""
+    import os
+
+    return os.environ.get("FILEWIZARD_REGISTER_MACHINE") == "1"
+
+
 def _install_native(winreg, dll: Path, command: str, icon: str | None) -> None:
-    hk = winreg.HKEY_CURRENT_USER
+    hk = winreg.HKEY_LOCAL_MACHINE if _machine_wide() else winreg.HKEY_CURRENT_USER
     write_manifest(command, icon)
     with winreg.CreateKeyEx(hk, rf"Software\Classes\CLSID\{CLSID}", 0, winreg.KEY_WRITE) as k:
         winreg.SetValueEx(k, "", 0, winreg.REG_SZ, f"{APP_NAME} context menu")
@@ -357,15 +365,17 @@ def _install_native(winreg, dll: Path, command: str, icon: str | None) -> None:
 
 
 def _uninstall_native(winreg) -> bool:
-    hk = winreg.HKEY_CURRENT_USER
     found = False
-    for path in [rf"{p}\{APP_NAME}" for p in HANDLER_PARENTS] + [rf"Software\Classes\CLSID\{CLSID}"]:
-        try:
-            winreg.OpenKey(hk, path).Close()
-            found = True
-        except FileNotFoundError:
-            continue
-        _delete_tree(winreg, hk, path)
+    hives = [winreg.HKEY_CURRENT_USER] + ([winreg.HKEY_LOCAL_MACHINE] if _machine_wide() else [])
+    for hk in hives:
+        for path in [rf"{p}\{APP_NAME}" for p in HANDLER_PARENTS] + [rf"Software\Classes\CLSID\{CLSID}"]:
+            try:
+                winreg.OpenKey(hk, path).Close()
+                found = True
+            except FileNotFoundError:
+                continue
+            _delete_tree(winreg, hk, path)
+    hk = winreg.HKEY_CURRENT_USER
     try:
         with winreg.OpenKey(hk, r"Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved", 0,
                             winreg.KEY_ALL_ACCESS) as k:

@@ -37,6 +37,7 @@ jobs:
   windows-shell:
     name: real Explorer context menu (windows)
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -99,6 +100,7 @@ jobs:
   installer:
     name: build + test Windows installer
     runs-on: windows-latest
+    timeout-minutes: 40
     needs: test
     steps:
       - uses: actions/checkout@v4
@@ -141,6 +143,9 @@ jobs:
           Get-Content "$app\menu.tsv" -TotalCount 25
       - name: Smoke-test the installed exe
         shell: pwsh
+        timeout-minutes: 10
+        env:
+          FILEWIZARD_NONINTERACTIVE: "1"  # no dialogs (e.g. the merge-order window) in CI
         run: |
           $app = "${env:ProgramFiles}\FileWizard"
           python -c "import pymupdf; d=pymupdf.open(); d.new_page().insert_text((72,72),'hi'); d.save('smoke.pdf')"

@@ -539,3 +539,17 @@ def sign(src: Path, sig: Path, page: int, x: float, y: float, width: float) -> l
     visible = pymupdf.Rect(x - width / 2, y - h / 2, x + width / 2, y + h / 2)
     pg.insert_image(visible * pg.derotation_matrix, stream=data, rotate=pg.rotation, overlay=True)
     return [_save(doc, sibling(src, "signed", ".pdf"))]
+
+
+def all_text(files: list[Path]) -> tuple[list[Path], str]:
+    """Text of PDFs/ebooks for the copy window (no file written)."""
+    pymupdf = _pymupdf()
+    parts = []
+    for f in files:
+        doc = _open(f) if f.suffix.lower() == ".pdf" else pymupdf.open(f)
+        text = "\n".join(p.get_text() for p in doc).strip()
+        doc.close()
+        if not text:
+            raise UserError(f"{f.name} has no selectable text (scanned?). Try 'Make searchable (OCR)' first.")
+        parts.append(text if len(files) == 1 else f"===== {f.name} =====\n{text}")
+    return [], "\n\n".join(parts)

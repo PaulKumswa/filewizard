@@ -416,6 +416,7 @@ def _build() -> list[Operation]:
     add("pdf-ocr", "Make searchable (OCR)", PDF_EXTS, "extract", per_file=lambda p, _: pdf.ocr(p))
     add("img-ocr", "Copy text out of image (OCR)", IMG_IN - VECTOR_EXTS, "extract",
         per_file=lambda p, _: pdf.image_to_text(p))
+    add("copy-text", "Copy all text", PDF_EXTS | EBOOK_EXTS, "extract", batch=lambda ps, _: pdf.all_text(ps))
     add("pdf-extract-images", "Images", PDF_EXTS, "extract", menu=EX, per_file=lambda p, _: pdf.extract_images(p))
     add("vid-snapshot", "A still frame (JPG)", VIDEO_EXTS, "extract", menu=EX, per_file=lambda p, _: media.snapshot(p))
     add("vid-extract-subs", "Subtitles (.srt)", VIDEO_EXTS, "extract", menu=EX,
@@ -470,7 +471,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MULTI = {"combine-pdf", "media-join", "img-contact-sheet"}

@@ -41,6 +41,12 @@ Name: "{group}\Uninstall FileWizard"; Filename: "{uninstallexe}"
 [Run]
 Filename: "{app}\filewizard.exe"; Parameters: "install"; Flags: runhidden waituntilterminated; StatusMsg: "Adding FileWizard to the right-click menu..."
 
+[UninstallDelete]
+; created by "filewizard install" after setup, so the uninstaller must be told about them
+Type: filesandordirs; Name: "{app}\icons"
+Type: files; Name: "{app}\menu.tsv"
+Type: files; Name: "{app}\filewizard.ico"
+
 [UninstallRun]
 Filename: "{app}\filewizard.exe"; Parameters: "uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveMenu"
 

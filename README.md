@@ -169,3 +169,22 @@ Page ranges: `1-3,5` · `8-` (to the end) · `-3` · `last`. Times: `90`, `1:30`
 pip install -e ".[dev]"
 python -m pytest                    # ~150 tests (dialog tests need a display); media tests use the bundled ffmpeg
 ```
+
+## Uninstalling
+
+*Settings → Apps → FileWizard → Uninstall* (or `uninstall.bat` for a from-source install). It removes the
+program, the right-click menu, its PATH entry and Start-menu shortcuts, asks whether to remove your
+settings and downloaded OCR languages, and turns the Windows 11 full-menu option back off if FileWizard
+turned it on. CI checks that nothing is left behind. One quirk: if Explorer still has the menu extension
+loaded, Windows deletes that one file at your next restart.
+
+## License
+
+FileWizard is **free for personal and other noncommercial use** (including by schools, charities and
+public bodies) under the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use isn't permitted
+without separate permission from the author.
+
+Note: the installer bundles components under their own licences (see [THIRD_PARTY.md](THIRD_PARTY.md)),
+including PyMuPDF (AGPL) and an ffmpeg build (GPL). Those licences don't allow a "noncommercial" restriction
+on programs distributed with them, so if you plan to **distribute** FileWizard beyond personal use, sort
+that out first (e.g. PyMuPDF's commercial licence and an LGPL ffmpeg build). Using it yourself is fine.

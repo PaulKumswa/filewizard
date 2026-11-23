@@ -271,10 +271,14 @@ def main(argv: list[str] | None = None) -> int:
     w11 = sub.add_parser("win11-menu", help="Windows 11: always show the full right-click menu (on/off)")
     w11.add_argument("state", choices=["on", "off"])
     w11.add_argument("--restart-explorer", action="store_true")
+    w11.add_argument("--only-if-ours", action="store_true", help=argparse.SUPPRESS)  # used by the uninstaller
 
     def _w11(a):
-        from .shell_menu import restart_explorer, set_win11_full_menu
+        from .settings import load
+        from .shell_menu import is_windows_11, restart_explorer, set_win11_full_menu
 
+        if a.only_if_ours and (not is_windows_11() or not load().get("win11_menu_by_filewizard")):
+            return 0  # you had it on before FileWizard (or never on): leave it alone
         set_win11_full_menu(a.state == "on")
         if a.restart_explorer:
             restart_explorer()

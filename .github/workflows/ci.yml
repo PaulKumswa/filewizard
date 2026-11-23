@@ -137,6 +137,7 @@ jobs:
         run: |
           Start-Process dist\FileWizard-Setup.exe -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
           $app = "${env:ProgramFiles}\FileWizard"
+          if (-not ([Environment]::GetEnvironmentVariable("Path", "Machine") -like "*FileWizard*")) { throw "PATH entry not added" }
           & "$app\filewizard.exe" doctor
           & "$app\filewizard.exe" menu .pdf
           reg query "HKLM\Software\Classes\CLSID\{6E2B7D59-3D4A-4C61-9F0E-FA11E3A1D0C8}" /s > reg.txt
@@ -211,6 +212,13 @@ jobs:
           reg query "HKLM\Software\Classes\*\shellex\ContextMenuHandlers\FileWizard" 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) { throw "handler still registered after uninstall" }
           if (Test-Path "${env:ProgramFiles}\FileWizard\menu.tsv") { throw "menu.tsv left behind after uninstall" }
+          $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+          if ($machinePath -like "*FileWizard*") { throw "PATH entry left behind after uninstall: $machinePath" }
+          if (Test-Path "$env:LOCALAPPDATA\FileWizard") { throw "settings folder left behind after uninstall" }
+          $left = @(Get-ChildItem "${env:ProgramFiles}\FileWizard" -Recurse -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -notlike "fwshell-*.dll" })
+          if ($left.Count -gt 0) { throw "files left in Program Files: $($left.Name -join ', ')" }
+          Write-Host "OK: uninstall left nothing behind (a shell DLL still loaded by Explorer is removed at next restart)"
           $global:LASTEXITCODE = 0
       - uses: actions/upload-artifact@v4
         with:

@@ -1,9 +1,10 @@
 # Third-party components
 
-FileWizard's own code is MIT-licensed (see `LICENSE`). The installer bundles these projects,
-each under its own license. Personal use is fine under all of them; **if you ever distribute or
-sell FileWizard, the GPL/AGPL items below require you to also offer the corresponding source code**
-(or replace those components).
+FileWizard's own code is under the PolyForm Noncommercial License 1.0.0 (see `LICENSE`). The installer bundles these projects,
+each under its own license. Personal use is fine under all of them. **If you distribute FileWizard, the GPL/AGPL items
+below require the corresponding source to be offered and don't allow extra restrictions such as
+"noncommercial"**, so before distributing, replace them or obtain commercial licences (Artifex sells
+one for PyMuPDF; ffmpeg can be built LGPL-only).
 
 | Component | Used for | License |
 |---|---|---|

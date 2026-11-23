@@ -645,12 +645,18 @@ def set_win11_full_menu(enable: bool) -> None:
     (no "Show more options"), so FileWizard is one click away. Takes effect after Explorer restarts."""
     if not is_windows_11():
         raise SystemExit("This setting only applies to Windows 11.")
+    from .settings import save
+
     winreg = _winreg()
     if enable:
+        already = win11_full_menu_enabled()
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, _WIN11_CLASSIC_KEY, 0, winreg.KEY_WRITE) as k:
             winreg.SetValueEx(k, "", 0, winreg.REG_SZ, "")  # empty default value = use the classic menu
+        if not already:  # remember it was us, so uninstall can put it back
+            save({"win11_menu_by_filewizard": True})
     else:
         _delete_tree(winreg, winreg.HKEY_CURRENT_USER, _WIN11_CLASSIC_KEY.rsplit("\\", 1)[0])
+        save({"win11_menu_by_filewizard": False})
     _say(f"Windows 11 full right-click menu {'on' if enable else 'off'} (restart Explorer to apply)")
 
 

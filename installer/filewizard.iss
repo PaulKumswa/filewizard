@@ -25,6 +25,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist
 OutputBaseFilename=FileWizard-Setup
 SetupIconFile=filewizard.ico
+LicenseFile=..\LICENSE
 UninstallDisplayIcon={app}\filewizardw.exe
 Compression=lzma2/max
 SolidCompression=yes
@@ -57,6 +58,7 @@ Type: files; Name: "{app}\menu.tsv"
 Type: files; Name: "{app}\filewizard.ico"
 
 [UninstallRun]
+Filename: "{app}\filewizard.exe"; Parameters: "win11-menu off --only-if-ours"; Flags: runhidden waituntilterminated; RunOnceId: "RevertWin11Menu"
 Filename: "{app}\filewizard.exe"; Parameters: "uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveMenu"
 
 [Registry]
@@ -67,6 +69,31 @@ Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environmen
 function IsWindows11: Boolean;
 begin
   Result := (GetWindowsVersion shr 24 >= 10) and ((GetWindowsVersion and $FFFF) >= 22000);
+end;
+
+procedure RemoveFromPath(Dir: string);
+var
+  Path: string;
+  P: Integer;
+begin
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Path) then
+    exit;
+  P := Pos(';' + Uppercase(Dir), Uppercase(Path));
+  if P = 0 then exit;
+  Delete(Path, P, Length(Dir) + 1);
+  RegWriteExpandStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Path);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    RemoveFromPath(ExpandConstant('{app}'));
+    // settings, log, recent actions, downloaded OCR languages (asked; silent uninstall removes them)
+    if SuppressibleMsgBox('Also remove your FileWizard settings and downloaded OCR languages?',
+                          mbConfirmation, MB_YESNO, IDYES) = IDYES then
+      DelTree(ExpandConstant('{localappdata}\FileWizard'), True, True, True);
+  end;
 end;
 
 function NeedsAddPath(Param: string): boolean;

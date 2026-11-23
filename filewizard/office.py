@@ -59,7 +59,9 @@ def _via_msoffice(src: Path, out: Path, target: str) -> bool:
         try:
             app.Visible = False
             app.DisplayAlerts = 0
-            doc = app.Documents.Open(s, ReadOnly=True, AddToRecentFiles=False, ConfirmConversions=False)
+            # A dummy password makes protected files fail fast instead of waiting on an invisible prompt.
+            doc = app.Documents.Open(s, ReadOnly=True, AddToRecentFiles=False, ConfirmConversions=False,
+                                     PasswordDocument="fw-no-password", Visible=False)
             try:
                 doc.SaveAs2(o, FileFormat=_WD_PDF if target == ".pdf" else _WD_DOCX)
             finally:
@@ -87,7 +89,8 @@ def _via_msoffice(src: Path, out: Path, target: str) -> bool:
         try:
             app.Visible = False
             app.DisplayAlerts = False
-            wb = app.Workbooks.Open(s, ReadOnly=True, AddToMru=False)
+            app.AskToUpdateLinks = False
+            wb = app.Workbooks.Open(s, UpdateLinks=0, ReadOnly=True, AddToMru=False, Password="fw-no-password")
             try:
                 if target == ".pdf":
                     wb.ExportAsFixedFormat(0, o)  # 0 = xlTypePDF, whole workbook
@@ -145,6 +148,9 @@ def convert(src: Path, target: str, out: Path | None = None) -> list[Path]:
         except Exception as e:  # Office present but choked (corrupt file, dialog...) -> try LibreOffice
             if out.exists():
                 out.unlink()
+            if "password" in str(e).lower():
+                raise UserError(f"{src.name} is password-protected. Open it, remove the password "
+                                "(File → Info → Protect), save, and try again.") from e
             if not find_soffice():
                 raise UserError(f"Microsoft Office couldn't convert {src.name}: {e}") from e
     if _via_libreoffice(src, out, target):

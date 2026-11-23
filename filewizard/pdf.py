@@ -635,3 +635,36 @@ def _cell_value(c):
     except ValueError:
         pass
     return t
+
+
+def n_up(src: Path, per_sheet: int) -> list[Path]:
+    """Put 2 or 4 pages on each Letter sheet (print slides as handouts, save paper)."""
+    pymupdf = _pymupdf()
+    if per_sheet not in (2, 4):
+        raise UserError("Choose 2 or 4 pages per sheet.")
+    doc = _open(src)
+    out_doc = pymupdf.open()
+    first = doc[0].rect if doc.page_count else pymupdf.Rect(0, 0, 612, 792)
+    landscape_pages = first.width > first.height
+    # 2-up: landscape sheet for portrait pages (side by side), portrait sheet for slides (stacked)
+    if per_sheet == 2:
+        sheet = pymupdf.paper_rect("letter-l") if not landscape_pages else pymupdf.paper_rect("letter")
+        cols, rows = (2, 1) if not landscape_pages else (1, 2)
+    else:
+        sheet = pymupdf.paper_rect("letter") if not landscape_pages else pymupdf.paper_rect("letter-l")
+        cols, rows = 2, 2
+    margin = 18
+    cw = (sheet.width - margin * (cols + 1)) / cols
+    ch = (sheet.height - margin * (rows + 1)) / rows
+    page = None
+    for i in range(doc.page_count):
+        slot = i % per_sheet
+        if slot == 0:
+            page = out_doc.new_page(width=sheet.width, height=sheet.height)
+        c, r = slot % cols, slot // cols
+        cell = pymupdf.Rect(margin + c * (cw + margin), margin + r * (ch + margin),
+                            margin + c * (cw + margin) + cw, margin + r * (ch + margin) + ch)
+        page.show_pdf_page(cell, doc, i, keep_proportion=True)
+        page.draw_rect(cell, color=(0.85, 0.85, 0.85), width=0.5)
+    doc.close()
+    return [_save(out_doc, sibling(src, f"{per_sheet} per page", ".pdf"))]

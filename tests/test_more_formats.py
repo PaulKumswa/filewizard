@@ -653,3 +653,13 @@ def test_pdf_tables_to_excel(tmp_path):
     assert values[0] == ["Date", "Item", "Amount"]
     assert values[2][2] == 1250.0 and values[3][2] == -20.0
     assert run("pdf-to-xlsx", _pdf(tmp_path / "plain.pdf", 1)) == 1
+
+
+def test_n_up(tmp_path):
+    src = _pdf(tmp_path / "slides.pdf", 5)
+    assert run("pdf-4up", src) == 0
+    with pymupdf.open(tmp_path / "slides (4 per page).pdf") as d:
+        assert d.page_count == 2 and "Page 4" in d[0].get_text() and "Page 5" in d[1].get_text()
+    assert run("pdf-2up", src) == 0
+    with pymupdf.open(tmp_path / "slides (2 per page).pdf") as d:
+        assert d.page_count == 3 and d[0].rect.width > d[0].rect.height

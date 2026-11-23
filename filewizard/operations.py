@@ -499,6 +499,7 @@ def _build() -> list[Operation]:
         param_names=("pattern",))
     add("details", "Show details", {ANY_FILE}, "more", menu=MORE, batch=lambda ps, _: files.details(ps))
     add("checksum", "Checksum (SHA-256)", {ANY_FILE}, "more", menu=MORE, batch=lambda ps, _: files.checksums(ps))
+    add("settings", "FileWizard settings…", {ANY_FILE, DIR}, "more", menu=MORE, batch=lambda ps, _: _open_settings())
     add("palette", "All actions…", {ANY_FILE, DIR}, "palette",
         batch=lambda ps, _: ([], ""), help="Search every FileWizard action for the selection")
     add("paste-image", "Paste clipboard image as file", {BACKGROUND}, "more",
@@ -509,6 +510,13 @@ def _build() -> list[Operation]:
     add("folder-combine-pdf", "Combine PDFs/images inside into one PDF", {DIR}, "more", menu=MORE,
         per_file=lambda p, _: pdf.combine_any(_folder_docs(p)))
     return ops
+
+
+def _open_settings():
+    from .cli import cmd_settings
+
+    cmd_settings(None)
+    return [], ""
 
 
 def _folder_docs(folder: Path) -> list[Path]:
@@ -534,7 +542,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-to-pptx", "img-white-bg", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-to-pptx", "img-white-bg", "settings", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MIXED = {"media-soundtrack"}

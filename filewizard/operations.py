@@ -244,8 +244,8 @@ def _build() -> list[Operation]:
     # ===== Convert to ▸ =====
     # documents
     add("office-to-pdf", "PDF", OFFICE_EXTS | {".txt"}, "convert", menu=CONVERT,
-        per_file=lambda p, _: (docs.text_to_pdf(p) if p.suffix.lower() == ".txt" and not office.find_soffice()
-                               and not office._com_available() else office.convert(p, ".pdf")))
+        # plain text never goes through Word: its encoding prompt could hang an invisible Word
+        per_file=lambda p, _: docs.text_to_pdf(p) if p.suffix.lower() == ".txt" else office.convert(p, ".pdf"))
     add("doc-to-pdf", "PDF", EBOOK_EXTS | MARKDOWN_EXTS | HTML_EXTS | {".log", ".json", ".xml", ".csv", ".tsv"},
         "convert", menu=CONVERT,
         per_file=lambda p, _: (docs.ebook_to_pdf(p) if p.suffix.lower() in EBOOK_EXTS

@@ -622,3 +622,11 @@ def test_gif_and_slideshow_from_images(tmp_path):
     assert run("img-slideshow", *files) == 0
     info = media.probe(tmp_path / "0 (slideshow).mp4")
     assert info.vcodec == "h264" and 8.0 < info.duration < 10.5
+
+
+def test_soundtrack(video, song):
+    assert run("media-soundtrack", video, song) == 0
+    out = video.parent / "clip (new audio).mp4"
+    info = media.probe(out)
+    assert info.vcodec == "h264" and info.acodec == "aac" and abs(info.duration - 3.0) < 0.3
+    assert run("media-soundtrack", video) == 1  # needs a pair

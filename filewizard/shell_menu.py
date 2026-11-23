@@ -371,7 +371,7 @@ def manifest_lines(command: str, icon: str | None, icons: dict[str, str] | None 
             open_path = op.menu
             if common == 0 or not op.menu:
                 prev_group = op.group
-            flags = "m" if op.multi else ""
+            flags = ("m" if op.multi else "") + ("x" if op.mixed else "")
             line = f"item\t{op.id}\t{op.label_for(ext)}\t{flags}"
             mixed = op.label if op.label_for(ext) != op.label else ""  # "Merge…" -> generic when mixed
             ico = icons.get(op.id) if not op.menu else None

@@ -55,6 +55,7 @@ class Operation:
     help: str = ""
     priority: int = 1                            # 1 = core; 2 = dropped first when space is short
     multi: bool = False                          # only meaningful with 2+ files selected
+    mixed: bool = False                          # only meaningful when the selection mixes types
 
     def applies_to(self, ext: str) -> bool:
         ext = ext.lower()
@@ -308,6 +309,9 @@ def _build() -> list[Operation]:
         batch=lambda ps, prm: media.merge(_ordered(ps, prm)),
         ask=_ask_order("Join files", add_types=VIDEO_EXTS | AUDIO_EXTS))
     ST = ("Stitch into one image",)
+    add("media-soundtrack", "Use the audio as the video's soundtrack", VIDEO_EXTS | AUDIO_EXTS, "combine",
+        batch=lambda ps, _: media.replace_audio(ps),
+        help="Select one video and one audio file (e.g. add music to a clip)")
     add("img-stitch-v", "Top to bottom", IMG_IN, "combine", menu=ST,
         batch=lambda ps, prm: images.stitch(_ordered(ps, prm), True), ask=_ask_order("Stitch images"))
     add("img-stitch-h", "Side by side", IMG_IN, "combine", menu=ST,
@@ -493,17 +497,19 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
-MULTI = {"combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h", "img-make-gif",
+MIXED = {"media-soundtrack"}
+MULTI = {"media-soundtrack", "combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h", "img-make-gif",
          "img-slideshow"}
 
 
 def _finalize(ops: list[Operation]) -> list[Operation]:
     from dataclasses import replace
 
-    return [replace(op, priority=2 if op.id in SECONDARY else 1, multi=op.id in MULTI) for op in ops]
+    return [replace(op, priority=2 if op.id in SECONDARY else 1, multi=op.id in MULTI, mixed=op.id in MIXED)
+            for op in ops]
 
 
 OPERATIONS: list[Operation] = _finalize(_build())

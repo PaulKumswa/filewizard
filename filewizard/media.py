@@ -547,3 +547,21 @@ def compatible(src: Path) -> list[Path]:
          "-level", "4.1", "-preset", "medium", "-crf", "21", "-c:a", "aac", "-b:a", "160k", "-ac", "2",
          "-movflags", "+faststart", str(tmp)], info.duration, f"Making {src.name} play everywhere")
     return [_finish(out, tmp)]
+
+
+def replace_audio(files: list[Path]) -> list[Path]:
+    """One video + one audio file -> the video with that audio as its soundtrack."""
+    vids = [f for f in files if f.suffix.lower() in VIDEO_EXTS]
+    auds = [f for f in files if f.suffix.lower() in AUDIO_EXTS]
+    if len(vids) != 1 or len(auds) != 1:
+        raise UserError("Select exactly one video and one audio file.")
+    v, a = vids[0], auds[0]
+    vinfo = probe(v)
+    out = _out(v, "new audio", ".mp4" if v.suffix.lower() not in (".mov", ".mkv") else v.suffix.lower())
+    tmp = _tmp_for(out)
+    vcodec = ["-c:v", "copy"] if vinfo.vcodec in ("h264", "hevc", "av1", "mpeg4") or out.suffix == ".mkv" else _H264
+    fade = max(0.0, vinfo.duration - 1.5)
+    run(["-i", str(v), "-i", str(a), "-map", "0:v:0", "-map", "1:a:0", *vcodec, "-c:a", "aac", "-b:a", "192k",
+         "-af", f"afade=t=out:st={fade:.2f}:d=1.5", "-t", f"{vinfo.duration:.3f}", "-shortest",
+         "-movflags", "+faststart", str(tmp)], vinfo.duration, f"Adding {a.name} to {v.name}")
+    return [_finish(out, tmp)]

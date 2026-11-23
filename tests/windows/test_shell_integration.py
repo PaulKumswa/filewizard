@@ -230,3 +230,20 @@ def test_native_menu_icons_rendered():
     assert len(icons) >= 10
     manifest = ((folder or app_dir()) / "menu.tsv").read_text(encoding="utf-8")
     assert "\tConvert to\t" in manifest and ".ico" in manifest
+
+
+@native_only
+def test_native_soundtrack_only_for_video_plus_audio(tmp_path):
+    import subprocess
+
+    import imageio_ffmpeg
+
+    ff = imageio_ffmpeg.get_ffmpeg_exe()
+    v1, v2, a = tmp_path / "a.mp4", tmp_path / "b.mp4", tmp_path / "m.mp3"
+    for v in (v1, v2):
+        subprocess.run([ff, "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=duration=1", str(v)], check=True)
+    subprocess.run([ff, "-loglevel", "error", "-f", "lavfi", "-i", "sine=duration=1", str(a)], check=True)
+    two_videos = "\n".join(shell_probe.dump([str(v1), str(v2)]))
+    pair = "\n".join(shell_probe.dump([str(v1), str(a)]))
+    assert "soundtrack" not in two_videos and "Join selected" in two_videos
+    assert "soundtrack" in pair

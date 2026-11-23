@@ -40,6 +40,7 @@ struct Node {
     std::wstring mixedLabel;  // label when the selection mixes file types (optional)
     std::wstring icon;        // .ico path for the menu image (optional)
     bool multi = false;   // needs 2+ files
+    bool mixed = false;   // only when the selection mixes file types (e.g. a video + an audio file)
     std::vector<Node> children;
 };
 
@@ -103,7 +104,7 @@ static std::vector<std::wstring> SplitTabs(const std::wstring& line) {
 //   menu    <TAB> Convert to
 //   menu    <TAB> Label [<TAB> icon.ico]
 //   item    <TAB> op-id <TAB> Label <TAB> flags [<TAB> label for mixed selections [<TAB> icon.ico]]
-//           (flags: m = needs 2+ files)
+//           (flags: m = needs 2+ files, x = needs a selection that mixes file types)
 //   sep
 //   end                                            (closes menu)
 //   endtype
@@ -175,6 +176,7 @@ static bool LoadManifest(Manifest& m) {
             n.id = f2[1];
             n.label = f2[2];
             n.multi = f2.size() >= 4 && f2[3].find(L'm') != std::wstring::npos;
+            n.mixed = f2.size() >= 4 && f2[3].find(L'x') != std::wstring::npos;
             if (f2.size() >= 5) n.mixedLabel = f2[4];
             if (f2.size() >= 6) n.icon = f2[5];
             target.push_back(n);
@@ -205,6 +207,7 @@ static std::vector<Node> Filter(const std::vector<Node>& nodes, const std::vecto
     for (auto& n : nodes) {
         if (n.kind == Node::Item) {
             if (n.multi && count < 2) continue;
+            if (n.mixed && others.empty()) continue;
             bool everywhere = true;
             for (auto& s : others)
                 if (!s.count(n.id)) { everywhere = false; break; }

@@ -1,6 +1,22 @@
 # Overnight build log
 
-Running notes: what was tried, what happened, what's next. Newest at the bottom of each section.
+## Start here (morning summary)
+
+**Try it:** GitHub → Actions → latest green *CI* run → Artifacts → **FileWizard-Setup** → run it
+(one UAC prompt) → right-click anything → **FileWizard ▸** (Windows 11: *Show more options* / Shift+right-click).
+
+What's verified on real Windows by CI (not just on Linux):
+- The full right-click menu, built by a native shell extension: every action, with icons, "Merge" only
+  when several files are selected, and mixed selections narrowed to shared actions. Driven through the
+  same COM interfaces Explorer uses, including clicks that produce the right output files.
+- The classic (registry) menu as a fallback: 16-entry Windows limit measured and respected, with "All actions…".
+- The installer: silent install → smoke test of the installed app (PDF, HEIC, video, audio) → uninstall cleanup.
+- Word/Excel → PDF through LibreOffice on Windows.
+
+What is NOT verified (needs your PC): Microsoft Office conversion (no Office on CI runners),
+how the dialogs look with your Windows theme, and the per-user (no-admin) native menu (see #17).
+
+Running notes below: what was tried, what happened, what's next.
 
 ## Decisions & experiments (closed loops)
 

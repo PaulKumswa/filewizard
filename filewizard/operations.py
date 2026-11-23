@@ -483,6 +483,8 @@ def _build() -> list[Operation]:
     add("vid-snapshot", "A still frame (JPG)", VIDEO_EXTS, "extract", menu=EX, per_file=lambda p, _: media.snapshot(p))
     add("vid-extract-subs", "Subtitles (.srt)", VIDEO_EXTS, "extract", menu=EX,
         per_file=lambda p, _: media.extract_subtitles(p))
+    add("vid-grid", "Thumbnail grid (16 frames)", VIDEO_EXTS, "extract", menu=EX,
+        per_file=lambda p, _: media.thumbnail_grid(p))
     add("vid-frames", "Frames (one per second)", VIDEO_EXTS, "extract", menu=EX,
         per_file=lambda p, _: media.extract_frames(p))
     add("img-strip", "Remove location/camera info", IMG_IN - VECTOR_EXTS, "extract",
@@ -549,7 +551,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-to-pptx", "img-white-bg", "settings", "pdf-compare", "img-scan-pdf", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-to-pptx", "img-white-bg", "settings", "pdf-compare", "img-scan-pdf", "vid-grid", "font-sample", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MIXED = {"media-soundtrack"}

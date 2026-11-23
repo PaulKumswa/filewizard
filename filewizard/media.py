@@ -593,3 +593,18 @@ def crop_aspect(src: Path, w_ratio: int, h_ratio: int) -> list[Path]:
     run(["-i", str(src), "-map", "0:v:0", "-map", "0:a:0?", "-vf", f"crop={cw}:{ch}", *_H264, "-c:a", "copy",
          "-movflags", "+faststart", str(tmp)], info.duration, f"Cropping {src.name} to {w_ratio}:{h_ratio}")
     return [_finish(out, tmp)]
+
+
+def thumbnail_grid(src: Path, cols: int = 4, rows: int = 4) -> list[Path]:
+    """One image showing evenly spaced frames (preview a long video at a glance)."""
+    info = probe(src)
+    if not info.vcodec or info.duration <= 0:
+        raise UserError(f"{src.name} has no video to preview.")
+    n = cols * rows
+    every = max(info.duration / n, 0.04)
+    out = _out(src, "thumbnails", ".jpg")
+    run(["-i", str(src), "-vf", f"fps=1/{every:.3f},scale=480:-2,tile={cols}x{rows}:padding=6:margin=6:color=white",
+         "-frames:v", "1", "-q:v", "3", str(out)], info.duration, f"Making thumbnails of {src.name}")
+    if not out.exists():
+        raise UserError(f"Couldn't make thumbnails for {src.name}.")
+    return [out]

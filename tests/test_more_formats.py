@@ -863,3 +863,9 @@ def test_tar_symlink_escape_blocked(tmp_path):
         t.addfile(f, io.BytesIO(data))
     assert run("arc-extract-folder", evil) == 1
     assert not (tmp_path / "evil").exists()
+
+
+def test_thumbnail_grid(video):
+    assert run("vid-grid", video) == 0
+    im = Image.open(video.parent / "clip (thumbnails).jpg")
+    assert im.width > 4 * 480 and im.height > 4 * 300

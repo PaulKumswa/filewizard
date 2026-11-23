@@ -152,7 +152,7 @@ Page ranges: `1-3,5` · `8-` (to the end) · `-3` · `last`. Times: `90`, `1:30`
   and runs the action once.
 - **Engines.** PyMuPDF (PDF, ebooks, SVG), Pillow + pillow-heif + rawpy (images), bundled
   ffmpeg via imageio-ffmpeg (video/audio), pdf2docx, Office COM / LibreOffice, py7zr, openpyxl.
-  PyMuPDF is AGPL: fine for personal use; check the license before distributing commercially.
+  Bundled components and their licences (some GPL/AGPL) are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 - **Testing.** CI runs the unit tests on Windows and Linux, then drives the **real Windows
   shell context menu**: it builds the menu through the same COM interfaces Explorer uses,
   hovers submenus and clicks items (including multi-select merges and mixed selections),

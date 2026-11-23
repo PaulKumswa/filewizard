@@ -148,8 +148,11 @@ class ContextMenu:
         return lines
 
     def find(self, path: list[str], hmenu=None):
+        def norm(t: str) -> str:  # tolerate "…" vs "..." vs nothing (command lines mangle "…")
+            return t.strip().rstrip(".…").strip()
+
         for text, wid, sub in self.items(hmenu):
-            if text.strip() == path[0]:
+            if norm(text) == norm(path[0]):
                 if len(path) == 1:
                     return wid, sub
                 if sub:

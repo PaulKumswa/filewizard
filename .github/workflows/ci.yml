@@ -64,8 +64,10 @@ jobs:
           FILEWIZARD_NATIVE_DLL: ${{ github.workspace }}\native\fwshell.dll
         run: |
           python -m filewizard install
+          [Environment]::SetEnvironmentVariable("FILEWIZARD_NONINTERACTIVE", "1", "User")
+          [Environment]::SetEnvironmentVariable("FILEWIZARD_NO_NOTIFY", "1", "User")
           $py = (Get-Command python).Source
-          ./tests/windows/nonelevated_probe.ps1 -Python $py -Probe "${{ github.workspace }}\tests\windows\shell_probe.py"
+          ./tests/windows/nonelevated_probe.ps1 -Python $py -Probe "${{ github.workspace }}\tests\windows\shell_probe.py" -Click
           python -m filewizard uninstall
       - name: Upload DLL
         uses: actions/upload-artifact@v4
@@ -131,12 +133,17 @@ jobs:
           if (-not (Test-Path smoke.mp3)) { throw "ffmpeg (bundled) failed in frozen build" }
           & "$app\filewizard.exe" run vid-to-gif smoke.mp4
           if (-not (Test-Path smoke.gif)) { throw "video->gif failed in frozen build" }
-      - name: Real shell clicks against the installed app
-        run: python -m pytest -v -s tests/windows
+      - name: Installed app as a normal (non-elevated) user - menu + click Merge
+        shell: pwsh
         env:
-          FILEWIZARD_SHELL_TEST: "1"
-          FILEWIZARD_ALREADY_INSTALLED: "1"
-          FILEWIZARD_MENU_MODE: native
+          FILEWIZARD_NONINTERACTIVE: "1"
+          FILEWIZARD_NO_NOTIFY: "1"
+        run: |
+          # runas-started processes read the user's registry environment, not this step's
+          [Environment]::SetEnvironmentVariable("FILEWIZARD_NONINTERACTIVE", "1", "User")
+          [Environment]::SetEnvironmentVariable("FILEWIZARD_NO_NOTIFY", "1", "User")
+          $py = (Get-Command python).Source
+          ./tests/windows/nonelevated_probe.ps1 -Python $py -Probe "${{ github.workspace }}\tests\windows\shell_probe.py" -Click
       - name: Uninstall cleans up
         shell: pwsh
         run: |

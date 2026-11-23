@@ -247,3 +247,17 @@ def test_native_soundtrack_only_for_video_plus_audio(tmp_path):
     pair = "\n".join(shell_probe.dump([str(v1), str(a)]))
     assert "soundtrack" not in two_videos and "Join selected" in two_videos
     assert "soundtrack" in pair
+
+
+@native_only
+def test_native_recent_actions_on_top(tmp_path):
+    from filewizard.util import app_dir
+
+    (app_dir() / "recent.txt").write_text("img-to-jpg\npdf-rotate-right\n", encoding="utf-8")
+    try:
+        lines = shell_probe.dump([_pdf(tmp_path / "r.pdf")])
+        print("\n".join(lines[:4]))
+        assert lines[0].startswith("Rotate") and "Right" in lines[0], lines[:3]  # recent, with its path
+        assert lines[1] == "---"
+    finally:
+        (app_dir() / "recent.txt").unlink()

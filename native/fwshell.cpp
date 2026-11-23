@@ -190,6 +190,44 @@ static bool LoadManifest(Manifest& m) {
     return !m.command.empty() && !m.types.empty();
 }
 
+// Recently used action ids (most recent first), written by FileWizard after each job.
+static std::vector<std::wstring> LoadRecent() {
+    std::vector<std::wstring> ids;
+    HANDLE f = CreateFileW((AppDir() + L"\\recent.txt").c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE,
+                           nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return ids;
+    char buf[4096];
+    DWORD n = 0;
+    BOOL ok = ReadFile(f, buf, sizeof(buf) - 1, &n, nullptr);
+    CloseHandle(f);
+    if (!ok) return ids;
+    std::wstring text = Utf8ToWide(std::string(buf, n));
+    size_t pos = 0;
+    while (pos < text.size() && ids.size() < 10) {
+        size_t nl = text.find(L'\n', pos);
+        std::wstring line = text.substr(pos, nl == std::wstring::npos ? std::wstring::npos : nl - pos);
+        pos = nl == std::wstring::npos ? text.size() : nl + 1;
+        while (!line.empty() && (line.back() == L'\r' || line.back() == L' ')) line.pop_back();
+        if (!line.empty()) ids.push_back(line);
+    }
+    return ids;
+}
+
+// Find an item by id anywhere in the tree; `path` collects the submenu names leading to it.
+static const Node* FindItem(const std::vector<Node>& nodes, const std::wstring& id, std::wstring& path) {
+    for (auto& n : nodes) {
+        if (n.kind == Node::Item && n.id == id) return &n;
+        if (n.kind == Node::Menu) {
+            const Node* hit = FindItem(n.children, id, path);
+            if (hit) {
+                path = n.label + L" \u203A " + path;
+                return hit;
+            }
+        }
+    }
+    return nullptr;
+}
+
 // ---------------------------------------------------------------- helpers
 
 static void CollectIds(const std::vector<Node>& nodes, std::unordered_set<std::wstring>& out) {
@@ -375,6 +413,24 @@ public:
             }
             std::vector<Node> nodes = Filter(*base, others, m_files.size());
             if (nodes.empty()) return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+
+            // up to 3 recently used actions that apply here, on top for one-hover access
+            std::vector<Node> recent;
+            for (auto& id : LoadRecent()) {
+                if (recent.size() >= 3 || id == L"palette") continue;
+                std::wstring path;
+                const Node* hit = FindItem(nodes, id, path);
+                if (!hit || path.empty()) continue;  // top-level items are already one hover away
+                Node copy = *hit;
+                copy.label = path + copy.label;
+                recent.push_back(copy);
+            }
+            if (!recent.empty()) {
+                Node sep;
+                sep.kind = Node::Separator;
+                recent.push_back(sep);
+                nodes.insert(nodes.begin(), recent.begin(), recent.end());
+            }
 
             m_ids.clear();
             HMENU sub = Build(nodes, first, last);

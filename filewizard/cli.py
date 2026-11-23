@@ -122,10 +122,23 @@ def cmd_run(args) -> int:
             text = f"{len(outputs)} file(s) done, but some failed:\n\n" + text
         ui.message(text, error=True) if args.shell else print(text, file=sys.stderr)
         return 1
+    _remember(op.id)
     if args.shell:
         # rename moves the originals, so "undo" would delete the user's files: no Undo there
         ui.notify_done(outputs, undoable=op.id != "rename")
     return 0
+
+
+def _remember(op_id: str) -> None:
+    """Keep the last few actions (most recent first) for the menu's 'recent' section."""
+    from .util import app_dir
+
+    try:
+        p = app_dir() / "recent.txt"
+        old = p.read_text(encoding="utf-8").split() if p.exists() else []
+        p.write_text("\n".join([op_id] + [i for i in old if i != op_id][:9]) + "\n", encoding="utf-8")
+    except OSError:
+        pass
 
 
 def cmd_list(args) -> int:

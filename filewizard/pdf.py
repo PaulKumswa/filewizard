@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .util import UserError, human_size, parse_page_ranges, sibling, unique_dir
+from .util import UserError, human_size, paper, parse_page_ranges, sibling, unique_dir
 
 
 def _pymupdf():
@@ -718,10 +718,10 @@ def n_up(src: Path, per_sheet: int) -> list[Path]:
     landscape_pages = first.width > first.height
     # 2-up: landscape sheet for portrait pages (side by side), portrait sheet for slides (stacked)
     if per_sheet == 2:
-        sheet = pymupdf.paper_rect("letter-l") if not landscape_pages else pymupdf.paper_rect("letter")
+        sheet = pymupdf.paper_rect(paper() + "-l") if not landscape_pages else pymupdf.paper_rect(paper())
         cols, rows = (2, 1) if not landscape_pages else (1, 2)
     else:
-        sheet = pymupdf.paper_rect("letter") if not landscape_pages else pymupdf.paper_rect("letter-l")
+        sheet = pymupdf.paper_rect(paper()) if not landscape_pages else pymupdf.paper_rect(paper() + "-l")
         cols, rows = 2, 2
     margin = 18
     cw = (sheet.width - margin * (cols + 1)) / cols

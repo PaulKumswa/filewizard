@@ -904,3 +904,18 @@ def test_ocr_download_uses_one_folder(tmp_path, monkeypatch):
     assert pdf.download_ocr_languages(["eng", "deu"]) == ["deu"]
     td = pdf.user_tessdata()
     assert (td / "eng.traineddata").read_bytes() == b"eng" and (td / "deu.traineddata").exists()
+
+
+def test_paper_size_setting(tmp_path, monkeypatch):
+    from filewizard import settings
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    md = tmp_path / "n.md"
+    md.write_text("# Hi\n", encoding="utf-8")
+    settings.save({"paper": "a4"})
+    try:
+        assert run("doc-to-pdf", md) == 0
+        with pymupdf.open(tmp_path / "n.pdf") as d:
+            assert round(d[0].rect.width) == 595  # A4
+    finally:
+        settings.save({"paper": "letter"})

@@ -48,7 +48,9 @@ def html_to_pdf_file(html: str, out: Path, base_dir: Path) -> Path:
     archive = pymupdf.Archive(str(base_dir))
     story = pymupdf.Story(html=html, user_css=_CSS, archive=archive)
     writer = pymupdf.DocumentWriter(str(out))
-    mediabox = pymupdf.paper_rect("letter")
+    from .util import paper
+
+    mediabox = pymupdf.paper_rect(paper())
     where = mediabox + (54, 54, -54, -54)  # 0.75" margins
     more, pages = True, 0
     while more:
@@ -103,7 +105,9 @@ def ebook_to_pdf(src: Path) -> list[Path]:
     except Exception as e:
         raise UserError(f"Couldn't open {src.name}: {e}. (DRM-protected ebooks can't be converted.)") from e
     if doc.is_reflowable:
-        doc.layout(rect=pymupdf.paper_rect("letter"), fontsize=11)
+        from .util import paper
+
+        doc.layout(rect=pymupdf.paper_rect(paper()), fontsize=11)
     toc = doc.get_toc()
     report(None, f"Converting {src.name}")
     pdf = pymupdf.open("pdf", doc.convert_to_pdf())

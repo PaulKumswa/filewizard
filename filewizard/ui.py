@@ -670,6 +670,14 @@ def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None
         except BaseException as e:  # SystemExit from install on Store Python etc.
             status.configure(text=str(e)[:200], foreground="#b00020")
 
+    paper_var = tk.StringVar(value=cfg.get("paper", "letter"))
+    prow = ttk.Frame(frm)
+    prow.pack(anchor="w", pady=(10, 0))
+    ttk.Label(prow, text="Paper size for new PDFs:").pack(side="left")
+    for val, name in (("letter", "Letter (US)"), ("a4", "A4")):
+        ttk.Radiobutton(prow, text=name, value=val, variable=paper_var,
+                        command=lambda: save({"paper": paper_var.get()})).pack(side="left", padx=(8, 0))
+
     menu_style = tk.StringVar(value=cfg.get("menu", "auto"))
     ttk.Label(frm, text="Menu style:").pack(anchor="w", pady=(10, 0))
 

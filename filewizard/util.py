@@ -182,3 +182,13 @@ PROGRESS = _Progress()
 
 def report(fraction: float | None = None, text: str | None = None) -> None:
     PROGRESS.report(fraction, text)
+
+
+def paper() -> str:
+    """'letter' or 'a4' (Settings > Paper size), the PyMuPDF paper name for new pages."""
+    try:
+        from .settings import load
+
+        return "a4" if load().get("paper") == "a4" else "letter"
+    except Exception:
+        return "letter"

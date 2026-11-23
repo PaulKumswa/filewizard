@@ -321,12 +321,16 @@ def out_ext(src: Path) -> str:
     return ".png" if e in VECTOR_EXTS | {".psd", ".tga", ".dds", ".qoi"} else ".jpg"
 
 
-def to_pdf_bytes(src: Path, max_w_pt: float = 612, max_h_pt: float = 792) -> tuple[bytes, float, float]:
+def to_pdf_bytes(src: Path, max_w_pt: float | None = None, max_h_pt: float | None = None) -> tuple[bytes, float, float]:
     """Encode an image for embedding in a PDF and pick a page size.
 
-    The page fits the image inside US Letter (rotated to match the image's orientation),
+    The page fits the image inside Letter or A4 (Settings), rotated to match the image's orientation,
     so phone photos print sensibly instead of becoming 50-inch pages.
     """
+    from .util import paper
+
+    if max_w_pt is None or max_h_pt is None:
+        max_w_pt, max_h_pt = (595, 842) if paper() == "a4" else (612, 792)
     img = open_image(src)
     w, h = img.size
     if w > h:
@@ -611,8 +615,8 @@ def make_slideshow(files: list[Path], seconds_per_image: float = 3.0) -> list[Pa
 
 def white_to_transparent(src: Path, tolerance: int = 28) -> list[Path]:
     """Make a plain light background transparent by flood-filling from the edges (white inside
-    the subject, like a logo's letters' holes reachable only through the subject, stays)."""
-    from PIL import Image, ImageDraw
+    the subject, like the inside of a letter "O", stays)."""
+    from PIL import ImageDraw
 
     img = open_image(src).convert("RGBA")
     w, h = img.size

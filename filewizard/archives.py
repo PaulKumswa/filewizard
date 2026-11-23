@@ -101,7 +101,7 @@ def extract(src: Path, here: bool = False, password: str | None = None) -> list[
         elif tarfile.is_tarfile(src):
             with tarfile.open(src) as t:
                 for m in t.getmembers():
-                    target = _safe_target(stage, m.name)
+                    _safe_target(stage, m.name)
                     if m.issym() or m.islnk():  # links must not point outside the folder either
                         link = m.linkname if m.islnk() else str(Path(m.name).parent / m.linkname)
                         if Path(m.linkname).is_absolute():
@@ -109,7 +109,6 @@ def extract(src: Path, here: bool = False, password: str | None = None) -> list[
                         _safe_target(stage, link)
                     if m.isdev():
                         raise UserError(f"Refusing to extract device file '{m.name}'.")
-                    del target
                 try:
                     t.extractall(stage, filter="data")  # also blocks device files, absolute links
                 except TypeError:  # Python < 3.10.12/3.11.4: no filters; paths were checked above

@@ -9,7 +9,8 @@ from .util import app_dir
 DEFAULTS = {
     "notify": True,          # show the "Done — Open / Show in folder" toast
     "output": "beside",
-    "menu": "auto",          # "auto" (full native menu when available) or "classic" (registry only)      # "beside" the original, or "subfolder" (a FileWizard folder next to it)
+    "menu": "auto",
+    "paper": "letter",       # "letter" or "a4" for pages FileWizard creates          # "auto" (full native menu when available) or "classic" (registry only)      # "beside" the original, or "subfolder" (a FileWizard folder next to it)
 }
 
 

@@ -513,3 +513,34 @@ def icon_pack(src: Path) -> list[Path]:
         '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">\n'
         '<link rel="apple-touch-icon" href="/apple-touch-icon.png">\n', encoding="utf-8")
     return [folder]
+
+
+def stitch(files: list[Path], vertical: bool = True, gap: int = 0) -> list[Path]:
+    """Join images into one: stacked top-to-bottom (screenshots) or side by side."""
+    from PIL import Image
+
+    if len(files) < 2:
+        raise UserError("Select at least two images to stitch.")
+    imgs = [open_image(f).convert("RGBA") for f in files]
+    if vertical:  # match widths
+        w = max(i.width for i in imgs)
+        imgs = [i if i.width == w else i.resize((w, round(i.height * w / i.width)), Image.LANCZOS) for i in imgs]
+        canvas = Image.new("RGBA", (w, sum(i.height for i in imgs) + gap * (len(imgs) - 1)), (255, 255, 255, 255))
+        y = 0
+        for i in imgs:
+            canvas.alpha_composite(i, (0, y))
+            y += i.height + gap
+    else:  # match heights
+        h = max(i.height for i in imgs)
+        imgs = [i if i.height == h else i.resize((round(i.width * h / i.height), h), Image.LANCZOS) for i in imgs]
+        canvas = Image.new("RGBA", (sum(i.width for i in imgs) + gap * (len(imgs) - 1), h), (255, 255, 255, 255))
+        x = 0
+        for i in imgs:
+            canvas.alpha_composite(i, (x, 0))
+            x += i.width + gap
+    if max(canvas.size) > 30000:
+        raise UserError("The stitched image would be over 30,000 pixels long. Select fewer images.")
+    photo = all(f.suffix.lower() in (".jpg", ".jpeg", ".heic", ".heif") for f in files)
+    ext = ".jpg" if photo else ".png"
+    out = sibling(files[0], "stitched", ext)
+    return [save_as(canvas, out, ext)]

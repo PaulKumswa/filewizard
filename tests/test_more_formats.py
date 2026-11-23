@@ -562,3 +562,13 @@ def test_rotate_some_pages(tmp_path):
     assert run("pdf-rotate-some", src, "-p", "pages=2,4") == 0
     with pymupdf.open(tmp_path / "scan (rotated).pdf") as d:
         assert [p.rotation for p in d] == [0, 90, 0, 90]
+
+
+def test_stitch(tmp_path):
+    a, b = tmp_path / "s1.png", tmp_path / "s2.png"
+    Image.new("RGB", (400, 200), "red").save(a)
+    Image.new("RGB", (200, 100), "blue").save(b)
+    assert run("img-stitch-v", a, b) == 0
+    assert Image.open(tmp_path / "s1 (stitched).png").size == (400, 400)  # second scaled to width 400
+    assert run("img-stitch-h", a, b) == 0
+    assert Image.open(tmp_path / "s1 (stitched) (2).png").size == (800, 200)

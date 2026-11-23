@@ -509,9 +509,18 @@ def _is_store_python() -> bool:
     return "windowsapps" in exe or "pythonsoftwarefoundation" in exe
 
 
+def _say(msg: str) -> None:
+    """Print and log: the installer runs us hidden, so the log is how problems get diagnosed."""
+    from .util import setup_logging
+
+    print(msg)
+    setup_logging().info("install: %s", msg)
+
+
 def install(mode: str = "auto") -> str:
     """mode: auto (native DLL if available), native, or classic. Returns the mode used."""
     winreg = _winreg()
+    _say(f"install mode={mode} frozen={frozen()} machine={_machine_wide()} exe={sys.executable}")
     if _is_store_python() and not frozen():
         # Store apps get a private, virtualized copy of HKCU and AppData: our writes would
         # "succeed" but Explorer would never see them.
@@ -537,7 +546,7 @@ def install(mode: str = "auto") -> str:
             raise SystemExit("FileWizard is installed for all users: repairing the menu needs admin rights. "
                              "Right-click 'FileWizard settings' > Run as administrator, or re-run the installer.") from e
         _refresh_explorer()
-        print(f"Installed the full {APP_NAME} menu (native handler: {dll.name}).")
+        _say(f"Installed the full {APP_NAME} menu (native handler: {dll}).")
         used = "native"
     else:
         entries = build_entries(command_prefix(launcher), icon)
@@ -548,8 +557,8 @@ def install(mode: str = "auto") -> str:
                 for name, (typ, val) in vals.items():
                     winreg.SetValueEx(k, name, 0, types[typ], val)
         _refresh_explorer()
-        print(f"Installed the {APP_NAME} menu for {len(ALL_EXTS)} file types (classic mode: "
-              "Windows limits these menus to 16 entries; 'All actions...' has the rest).")
+        _say(f"Installed the {APP_NAME} menu for {len(ALL_EXTS)} file types (classic mode: "
+             "Windows limits these menus to 16 entries; 'All actions...' has the rest).")
         used = "classic"
     print("Right-click a file, then FileWizard. On Windows 11 it's under 'Show more options' (or Shift+right-click).")
     return used

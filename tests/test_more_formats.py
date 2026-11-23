@@ -705,3 +705,9 @@ def test_password_7z(tmp_path):
     assert run("arc-extract-folder", arc, "-p", "password=nope") == 1
     assert run("arc-extract-folder", arc, "-p", "password=pw") == 0
     assert (tmp_path / "s" / "secret.txt").read_text() == "hidden"
+
+
+def test_audio_extract_is_lossless_copy_when_possible(video):
+    assert run("aud-to-m4a", video) == 0  # clip has AAC audio
+    out = video.with_suffix(".m4a")
+    assert media.probe(out).acodec == "aac"

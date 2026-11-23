@@ -184,7 +184,12 @@ def convert_audio(src: Path, ext: str) -> list[Path]:
     out = _out(src, None, ext)
     tmp = _tmp_for(out)
     extra = ["-ar", "48000"] if ext == ".opus" else []
-    run(["-i", str(src), "-vn", "-map_metadata", "0", *AUDIO_TARGETS[ext], *extra, str(tmp)],
+    codec = AUDIO_TARGETS[ext]
+    # already the right codec (e.g. AAC audio in a phone video -> .m4a): copy it, instant and lossless
+    if (ext in (".m4a", ".aac") and info.acodec == "aac") or (ext == ".mp3" and info.acodec == "mp3") or \
+            (ext == ".flac" and info.acodec == "flac") or (ext == ".opus" and info.acodec == "opus"):
+        codec, extra = ["-c:a", "copy"], []
+    run(["-i", str(src), "-vn", "-map_metadata", "0", *codec, *extra, str(tmp)],
         info.duration, f"Converting {src.name}")
     return [_finish(out, tmp)]
 

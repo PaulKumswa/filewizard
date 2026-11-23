@@ -29,6 +29,25 @@ def checksums(files: list[Path]) -> tuple[list[Path], str]:
     return [], "\n\n".join(lines)
 
 
+def taken_date(f: Path) -> datetime | None:
+    """When a photo was taken (EXIF DateTimeOriginal), if it has one."""
+    try:
+        from PIL import Image
+
+        from .images import IMAGE_EXTS, _register_heif
+
+        if f.suffix.lower() not in IMAGE_EXTS:
+            return None
+        if f.suffix.lower() in (".heic", ".heif", ".avif"):
+            _register_heif()
+        with Image.open(f) as im:
+            exif = im.getexif()
+            raw = exif.get_ifd(0x8769).get(0x9003) or exif.get(0x0132)
+        return datetime.strptime(str(raw).strip("\x00 "), "%Y:%m:%d %H:%M:%S") if raw else None
+    except Exception:
+        return None
+
+
 def _expand(pattern: str, f: Path, n: int, width: int) -> str:
     stat = f.stat()
     date = datetime.fromtimestamp(stat.st_mtime)
@@ -42,15 +61,17 @@ def _expand(pattern: str, f: Path, n: int, width: int) -> str:
             return f.stem
         if key == "date":
             return date.strftime(fmt or "%Y-%m-%d")
+        if key == "taken":
+            return (taken_date(f) or date).strftime(fmt or "%Y-%m-%d")
         if key == "ext":
             return f.suffix.lstrip(".")
         return m.group(0)
 
-    return re.sub(r"\{(n|name|date|ext)(?::([^}]*))?\}", sub, pattern)
+    return re.sub(r"\{(n|name|date|taken|ext)(?::([^}]*))?\}", sub, pattern)
 
 
 def plan_rename(files: list[Path], pattern: str) -> list[tuple[Path, Path]]:
-    """'Trip {n}' -> Trip 1.jpg, Trip 2.jpg ... ; tokens: {n} {n:3} {name} {date} {date:%Y%m%d} {ext}.
+    """'Trip {n}' -> Trip 1.jpg, Trip 2.jpg ... ; tokens: {n} {n:3} {name} {date} {date:%Y%m%d} {taken} {ext}.
     A pattern without {n} gets ' {n}' appended so names stay unique."""
     pattern = pattern.strip()
     if not pattern:

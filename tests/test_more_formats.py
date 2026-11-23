@@ -545,3 +545,13 @@ def test_pdf_sign(tmp_path):
 
     png = Image.open(io.BytesIO(signature_png(sig)))
     assert png.mode == "RGBA" and png.getpixel((0, 0))[3] == 0  # white became transparent
+
+
+def test_rename_by_photo_date(tmp_path):
+    exif = Image.Exif()
+    exif[0x0132] = "2024:07:04 09:30:00"
+    Image.new("RGB", (8, 8)).save(tmp_path / "IMG_0001.jpg", exif=exif.tobytes())
+    Image.new("RGB", (8, 8)).save(tmp_path / "IMG_0002.jpg")  # no EXIF: falls back to file date
+    assert run("rename", *sorted(tmp_path.iterdir()), "-p", "pattern={taken} {n}") == 0
+    names = sorted(p.name for p in tmp_path.iterdir())
+    assert names[0] == "2024-07-04 01.jpg" and len(names) == 2

@@ -146,7 +146,7 @@ def _ask_rename(paths):
 
     while True:
         v = ui.ask_string("New name for the selected files. Tokens:\n"
-                          "  {n} number   {name} old name   {date} modified date   {ext}\n\n"
+                          "  {n} number   {name} old name   {date} modified   {taken} photo date   {ext}\n\n"
                           "e.g.  Vacation {n}  →  Vacation 01.jpg, Vacation 02.jpg …",
                           "{name}" if len(paths) == 1 else "")
         if v is None:

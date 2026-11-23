@@ -142,6 +142,9 @@ jobs:
           if (-not (Test-Path smoke.mp3)) { throw "ffmpeg (bundled) failed in frozen build" }
           & "$app\filewizard.exe" run vid-to-gif smoke.mp4
           if (-not (Test-Path smoke.gif)) { throw "video->gif failed in frozen build" }
+          $t1 = (Measure-Command { & "$app\filewizard.exe" --version | Out-Null }).TotalSeconds
+          $t2 = (Measure-Command { & "$app\filewizard.exe" run img-to-png smoke.jpg | Out-Null }).TotalSeconds
+          Write-Host ("TIMING: startup {0:N2}s, JPG->PNG end to end {1:N2}s" -f $t1, $t2)
       - name: Installed app as a normal (non-elevated) user - menu + click Merge
         shell: pwsh
         env:

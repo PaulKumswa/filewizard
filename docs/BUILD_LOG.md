@@ -96,3 +96,7 @@ Running notes below: what was tried, what happened, what's next.
   watchdog) but has never run against real Office. Try Word → PDF first and tell me what happens.
 - **Code signing** the installer (removes the SmartScreen warning): needs a paid certificate.
 - **More OCR languages**: the installer bundles English; others are a ~2–4 MB download each.
+
+## Releases
+- Pushing a tag `vX.Y.Z` runs the full CI; a final `release` job (the only one with write access) checks the
+  tag matches `__version__`, then publishes `FileWizard-Setup.exe` as a GitHub Release with docs/RELEASE_NOTES.md.

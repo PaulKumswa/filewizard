@@ -731,3 +731,11 @@ def test_white_background_transparent(tmp_path):
     assert run("img-white-bg", src) == 0
     out = Image.open(tmp_path / "logo (transparent).png")
     assert out.getpixel((5, 5))[3] == 0 and out.getpixel((100, 60))[3] == 255 and out.getpixel((50, 40))[3] == 255
+
+
+def test_pdf_to_pptx(tmp_path):
+    pptx = pytest.importorskip("pptx")
+    src = _pdf(tmp_path / "lecture.pdf", 3)
+    assert run("pdf-to-pptx", src) == 0
+    prs = pptx.Presentation(tmp_path / "lecture.pptx")
+    assert len(prs.slides) == 3

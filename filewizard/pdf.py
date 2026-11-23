@@ -707,3 +707,33 @@ def trim_margins(src: Path, pad: float = 14) -> list[Path]:
         doc.close()
         raise UserError(f"{src.name} has no wide white margins to trim.")
     return [_save(doc, sibling(src, "trimmed", ".pdf"))]
+
+
+def to_pptx(src: Path, dpi: int = 150) -> list[Path]:
+    """PDF -> PowerPoint, one slide per page (each slide shows the page as a picture)."""
+    import io
+
+    try:
+        from pptx import Presentation
+        from pptx.util import Emu
+    except ImportError as e:
+        raise UserError("PDF → PowerPoint needs 'python-pptx' (pip install python-pptx).") from e
+    from .util import report
+
+    doc = _open(src)
+    if not doc.page_count:
+        raise UserError(f"{src.name} has no pages.")
+    first = doc[0].rect
+    prs = Presentation()
+    emu_per_pt = 12700
+    prs.slide_width, prs.slide_height = Emu(int(first.width * emu_per_pt)), Emu(int(first.height * emu_per_pt))
+    blank = prs.slide_layouts[6]
+    for i, page in enumerate(doc):
+        report(i / doc.page_count, f"Slide {i + 1} of {doc.page_count}")
+        png = page.get_pixmap(dpi=dpi, alpha=False).tobytes("png")
+        slide = prs.slides.add_slide(blank)
+        slide.shapes.add_picture(io.BytesIO(png), 0, 0, width=prs.slide_width, height=prs.slide_height)
+    doc.close()
+    out = sibling(src, None, ".pptx")
+    prs.save(out)
+    return [out]

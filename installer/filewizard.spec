@@ -5,7 +5,7 @@
 from PyInstaller.utils.hooks import collect_all, collect_data_files
 
 datas, binaries, hidden = [], [], []
-for pkg in ("pymupdf", "pillow_heif", "rawpy", "imageio_ffmpeg", "pdf2docx", "py7zr", "openpyxl", "markdown"):
+for pkg in ("pymupdf", "pillow_heif", "rawpy", "imageio_ffmpeg", "pdf2docx", "py7zr", "openpyxl", "markdown", "pptx"):
     try:
         d, b, h = collect_all(pkg)
         datas += d; binaries += b; hidden += h

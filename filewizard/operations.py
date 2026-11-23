@@ -543,6 +543,8 @@ def execute(op: Operation, files: list[Path], params: Params) -> tuple[list[Path
         take(op.batch(files, params))
         return outputs, errors, messages
     n = len(files)
+    if n >= 3 and _parallel_ok(op):
+        return _execute_parallel(op, files, params, take, outputs, errors, messages)
     for i, f in enumerate(files):
         PROGRESS.base, PROGRESS.span = i / n, 1 / n
         PROGRESS.report(0.0, f"{op.label.rstrip('…')}: {f.name}" + (f"  ({i + 1} of {n})" if n > 1 else ""))
@@ -555,4 +557,44 @@ def execute(op: Operation, files: list[Path], params: Params) -> tuple[list[Path
         except Exception as e:  # keep going; report at the end
             errors.append(f"{f.name}: {type(e).__name__}: {e}")
     PROGRESS.base, PROGRESS.span = 0.0, 1.0
+    return outputs, errors, messages
+
+
+# Pillow-only actions are safe to run side by side (Pillow releases the GIL while encoding).
+# PyMuPDF isn't thread-safe and ffmpeg is already multi-threaded, so those stay sequential.
+_PARALLEL_EXCLUDE = {"img-to-pdf", "img-ocr", "img-nobg"}
+
+
+def _parallel_ok(op: Operation) -> bool:
+    return op.id.startswith("img-") and op.per_file is not None and op.id not in _PARALLEL_EXCLUDE
+
+
+def _execute_parallel(op, files, params, take, outputs, errors, messages):
+    import os
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from .util import PROGRESS, Cancelled
+
+    n = len(files)
+    PROGRESS.base, PROGRESS.span = 0.0, 1.0
+    workers = max(2, min(6, (os.cpu_count() or 4) - 1))
+    done = 0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(op.per_file, f, params): f for f in files}
+        for fut in as_completed(futures):
+            f = futures[fut]
+            try:
+                take(fut.result())
+            except UserError as e:
+                errors.append(str(e))
+            except Exception as e:
+                errors.append(f"{f.name}: {type(e).__name__}: {e}")
+            done += 1
+            if PROGRESS.cancelled:
+                for other in futures:
+                    other.cancel()
+                raise Cancelled()
+            PROGRESS.fraction = done / n
+            PROGRESS.text = f"{op.label.rstrip('…')}: {done} of {n} done"
+    outputs.sort(key=natural_key)
     return outputs, errors, messages

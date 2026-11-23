@@ -596,3 +596,15 @@ def test_video_compatible(tmp_path):
     assert media.probe(hevc).vcodec == "hevc"
     assert run("vid-compatible", hevc) == 0
     assert media.probe(tmp_path / "iphone (compatible).mp4").vcodec == "h264"
+
+
+def test_parallel_batch_convert(tmp_path):
+    files = []
+    for i in range(12):
+        p = tmp_path / f"p{i}.png"
+        Image.effect_noise((600, 400), 30).convert("RGB").save(p)
+        files.append(p)
+    bad = tmp_path / "broken.png"
+    bad.write_bytes(b"nope")
+    assert run("img-to-jpg", *files, bad) == 1  # one bad file is reported, the rest still convert
+    assert len(list(tmp_path.glob("*.jpg"))) == 12

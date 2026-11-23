@@ -162,5 +162,5 @@ Page ranges: `1-3,5` · `8-` (to the end) · `-3` · `last`. Times: `90`, `1:30`
 
 ```
 pip install -e ".[dev]"
-python -m pytest                    # ~100 tests; media tests use the bundled ffmpeg
+python -m pytest                    # ~150 tests (dialog tests need a display); media tests use the bundled ffmpeg
 ```

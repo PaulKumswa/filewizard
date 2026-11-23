@@ -562,3 +562,76 @@ def all_text(files: list[Path]) -> tuple[list[Path], str]:
             raise UserError(f"{f.name} has no selectable text (scanned?). Try 'Make searchable (OCR)' first.")
         parts.append(text if len(files) == 1 else f"===== {f.name} =====\n{text}")
     return [], "\n\n".join(parts)
+
+
+def to_xlsx(src: Path) -> list[Path]:
+    """Tables found in the PDF -> an Excel workbook (one sheet per table)."""
+    import openpyxl
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    from .util import report
+
+    doc = _open(src)
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    found = 0
+    for pno, page in enumerate(doc, 1):
+        report(pno / doc.page_count, f"Looking for tables on page {pno}")
+        try:
+            tables = page.find_tables()
+        except Exception:
+            continue
+        for tno, table in enumerate(tables.tables, 1):
+            rows = _table_rows(page, table)
+            if not rows or len(rows) < 2:
+                continue
+            found += 1
+            ws = wb.create_sheet(f"Page {pno} table {tno}"[:31])
+            for row in rows:
+                ws.append([_cell_value(c) for c in row])
+            for c in ws[1]:
+                c.font = Font(bold=True)
+            for i in range(1, max(len(r) for r in rows) + 1):
+                width = max((len(str(r[i - 1] or "")) for r in rows if len(r) >= i), default=8)
+                ws.column_dimensions[get_column_letter(i)].width = min(max(width + 2, 8), 60)
+    doc.close()
+    if not found:
+        raise UserError(f"No tables found in {src.name}. (Scanned PDFs need 'Make searchable (OCR)' first.)")
+    out = sibling(src, None, ".xlsx")
+    wb.save(out)
+    return [out]
+
+
+def _table_rows(page, table) -> list[list[str]]:
+    """Read each detected cell's text straight from its rectangle (keeps characters in reading
+    order; the built-in extraction can scramble punctuation like '1,250.00')."""
+    pymupdf = _pymupdf()
+    out = []
+    for row in table.rows:
+        vals = []
+        for cell in row.cells:
+            if cell is None:
+                vals.append("")
+                continue
+            r = pymupdf.Rect(cell)
+            vals.append(" ".join(page.get_textbox(r).split()))
+        out.append(vals)
+    return out
+
+
+def _cell_value(c):
+    """Table cell text -> number when it clearly is one ('1,234.50', '$12', '(3.00)'), else text."""
+    if c is None:
+        return ""
+    t = str(c).replace("\n", " ").strip()
+    s = t.replace(",", "").replace("$", "").replace("€", "").replace("£", "").strip()
+    neg = s.startswith("(") and s.endswith(")")
+    s = s.strip("()")
+    try:
+        if s and (s.replace(".", "", 1).lstrip("-").isdigit()) and not (len(s) > 1 and s[0] == "0" and s[1] != "."):
+            v = float(s) if "." in s else int(s)
+            return -v if neg else v
+    except ValueError:
+        pass
+    return t

@@ -630,3 +630,26 @@ def test_soundtrack(video, song):
     info = media.probe(out)
     assert info.vcodec == "h264" and info.acodec == "aac" and abs(info.duration - 3.0) < 0.3
     assert run("media-soundtrack", video) == 1  # needs a pair
+
+
+def test_pdf_tables_to_excel(tmp_path):
+    import openpyxl
+
+    d = pymupdf.open()
+    page = d.new_page()
+    rows = [["Date", "Item", "Amount"], ["2026-01-02", "Coffee", "3.50"], ["2026-01-03", "Books", "1,250.00"],
+            ["2026-01-04", "Refund", "(20.00)"]]
+    x0, y0, cw, rh = 72, 100, 150, 24
+    for r, row in enumerate(rows):
+        for c, val in enumerate(row):
+            rect = pymupdf.Rect(x0 + c * cw, y0 + r * rh, x0 + (c + 1) * cw, y0 + (r + 1) * rh)
+            page.draw_rect(rect, color=(0, 0, 0), width=0.8)
+            page.insert_text((rect.x0 + 4, rect.y1 - 7), val, fontsize=10)
+    src = tmp_path / "statement.pdf"
+    d.save(src)
+    assert run("pdf-to-xlsx", src) == 0
+    ws = openpyxl.load_workbook(tmp_path / "statement.xlsx").active
+    values = [[c.value for c in r] for r in ws.iter_rows()]
+    assert values[0] == ["Date", "Item", "Amount"]
+    assert values[2][2] == 1250.0 and values[3][2] == -20.0
+    assert run("pdf-to-xlsx", _pdf(tmp_path / "plain.pdf", 1)) == 1

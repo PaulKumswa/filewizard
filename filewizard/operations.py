@@ -260,6 +260,7 @@ def _build() -> list[Operation]:
         per_file=lambda p, _: docs.to_json(p))
     add("md-to-html", "Web page (.html)", MARKDOWN_EXTS, "convert", menu=CONVERT,
         per_file=lambda p, _: docs.markdown_to_html_file(p))
+    add("pdf-to-xlsx", "Excel (tables)", PDF_EXTS, "convert", menu=CONVERT, per_file=lambda p, _: pdf.to_xlsx(p))
     add("pdf-to-png", "PNG images", PDF_EXTS, "convert", menu=CONVERT,
         per_file=lambda p, _: pdf.to_images(p, ".png"))
     add("pdf-to-jpg", "JPG images", PDF_EXTS, "convert", menu=CONVERT,

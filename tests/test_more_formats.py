@@ -793,3 +793,16 @@ def test_read_only_folder_falls_back_to_downloads(tmp_path, monkeypatch):
     assert run("img-to-jpg", src) == 0
     assert (tmp_path / "home" / "Downloads" / "FileWizard" / "pic.jpg").exists()
     assert not (ro / "pic.jpg").exists()
+
+
+def test_unicode_and_emoji_filenames(tmp_path, clip):
+    name = "Café résumé 📷 – 日本"
+    img = tmp_path / f"{name}.png"
+    Image.new("RGB", (20, 20), "teal").save(img)
+    assert run("img-to-jpg", img) == 0 and (tmp_path / f"{name}.jpg").exists()
+    pdf_a = _pdf(tmp_path / f"{name} A.pdf", 1)
+    pdf_b = _pdf(tmp_path / f"{name} B.pdf", 1)
+    assert run("combine-pdf", pdf_a, pdf_b) == 0
+    vid = tmp_path / f"{name}.mp4"
+    shutil.copy(clip, vid)
+    assert run("aud-to-mp3", vid) == 0 and (tmp_path / f"{name}.mp3").exists()

@@ -84,11 +84,12 @@ def _ask_pages(verb: str):
         from .pdf import _open
 
         if len(paths) == 1:  # one PDF: show thumbnails to click
-            try:
-                v = ui.pick_pages(paths[0], verb)
-                return None if v is None else {"pages": v}
-            except (ImportError, RuntimeError):
-                pass
+            if ui.interactive():
+                try:
+                    v = ui.pick_pages(paths[0], verb)
+                    return None if v is None else {"pages": v}
+                except ImportError:  # no Tk: fall back to typing the pages
+                    pass
 
         counts = []
         for p in paths[:3]:
@@ -185,6 +186,15 @@ def _ask_signature(paths):
         save({"signature": str(sig)})
     placed = ui.place_signature(paths[0], signature_png(sig))
     return None if placed is None else {**placed, "sig": str(sig)}
+
+
+def _ask_archive_password(paths):
+    from .archives import is_encrypted
+
+    if not any(is_encrypted(p) for p in paths):
+        return {}
+    pw = ui.ask_string("This archive is password-protected. Password:", secret=True)
+    return None if pw is None else {"password": pw}
 
 
 def _ordered(paths: list[Path], params: Params) -> list[Path]:
@@ -462,9 +472,12 @@ def _build() -> list[Operation]:
         per_file=lambda p, _: images.strip_metadata(p))
 
     # ===== archives =====
-    add("arc-extract", "Extract here", ARCHIVE_EXTS, "archive", per_file=lambda p, _: archives.extract(p, here=True))
+    add("arc-extract", "Extract here", ARCHIVE_EXTS, "archive",
+        per_file=lambda p, prm: archives.extract(p, here=True, password=prm.get("password")),
+        ask=_ask_archive_password, param_names=("password",))
     add("arc-extract-folder", "Extract to its own folder", ARCHIVE_EXTS, "archive",
-        per_file=lambda p, _: archives.extract(p))
+        per_file=lambda p, prm: archives.extract(p, password=prm.get("password")), ask=_ask_archive_password,
+        param_names=("password",))
 
     # ===== More ▸ (any file, folders too) =====
     MORE = ("More",)

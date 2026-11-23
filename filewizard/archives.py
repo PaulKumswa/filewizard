@@ -43,7 +43,23 @@ def _seven_zip() -> str | None:
     return None
 
 
-def extract(src: Path, here: bool = False) -> list[Path]:
+def is_encrypted(src: Path) -> bool:
+    ext = src.suffix.lower()
+    try:
+        if ext == ".zip":
+            with zipfile.ZipFile(src) as z:
+                return any(i.flag_bits & 0x1 for i in z.infolist())
+        if ext == ".7z":
+            import py7zr
+
+            with py7zr.SevenZipFile(src) as z:
+                return z.needs_password()
+    except Exception:
+        return False
+    return False
+
+
+def extract(src: Path, here: bool = False, password: str | None = None) -> list[Path]:
     """Extract into a new folder named after the archive (or next to it if `here` and it has
     a single top-level item, so you don't get folder-in-folder)."""
     ext = src.suffix.lower()
@@ -52,24 +68,36 @@ def extract(src: Path, here: bool = False) -> list[Path]:
         if ext == ".zip":
             with zipfile.ZipFile(src) as z:
                 members = z.infolist()
+                if password:
+                    z.setpassword(password.encode("utf-8"))
                 for i, m in enumerate(members):
                     _safe_target(stage, m.filename)
-                    if m.flag_bits & 0x1:
-                        raise UserError(f"{src.name} is password-protected; that's not supported yet.")
-                    z.extract(m, stage)
+                    if m.flag_bits & 0x1 and not password:
+                        raise UserError(f"{src.name} is password-protected.")
+                    try:
+                        z.extract(m, stage)
+                    except RuntimeError as e:  # bad password
+                        raise UserError(f"Wrong password for {src.name}.") from e
+                    except NotImplementedError as e:  # AES zips need 7-Zip
+                        raise UserError(f"{src.name} uses AES encryption; open it with 7-Zip.") from e
                     report((i + 1) / len(members), f"Extracting {m.filename}")
         elif ext == ".7z":
             try:
                 import py7zr
             except ImportError as e:
                 raise UserError("7z support needs 'py7zr' (pip install py7zr).") from e
-            with py7zr.SevenZipFile(src) as z:
-                if z.needs_password():
-                    raise UserError(f"{src.name} is password-protected; that's not supported yet.")
+            with py7zr.SevenZipFile(src, password=password) as z:
+                if z.needs_password() and not password:
+                    raise UserError(f"{src.name} is password-protected.")
                 for name in z.getnames():
                     _safe_target(stage, name)
                 report(None, f"Extracting {src.name}")
-                z.extractall(stage)
+                try:
+                    z.extractall(stage)
+                except Exception as e:
+                    if password:
+                        raise UserError(f"Wrong password for {src.name}.") from e
+                    raise
         elif tarfile.is_tarfile(src):
             with tarfile.open(src) as t:
                 for m in t.getmembers():

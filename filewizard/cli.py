@@ -82,9 +82,12 @@ def cmd_run(args) -> int:
             raise UserError("File not found: " + ", ".join(map(str, missing)))
         params = _parse_params(args.param)
         if op.ask and not (op.param_names and all(n in params for n in op.param_names)):
-            if not ui.interactive() and op.param_names:
-                raise UserError(f"'{op.id}' needs: " + ", ".join(f"-p {n}=…" for n in op.param_names))
-            asked = op.ask(files)
+            try:
+                asked = op.ask(files)
+            except RuntimeError as e:  # needed input but there's no one to ask (scripts, tests)
+                if ui.interactive():
+                    raise
+                raise UserError(f"'{op.id}' needs: " + ", ".join(f"-p {n}=…" for n in op.param_names)) from e
             if asked is None:
                 log.info("cancelled by user")
                 return 1

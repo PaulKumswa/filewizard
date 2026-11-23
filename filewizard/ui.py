@@ -726,6 +726,8 @@ def pages_to_spec(selected: list[int]) -> str:
 
 def pick_pages(pdf: Path, verb: str, max_pages: int = 400) -> str | None:
     """Thumbnail grid: click pages to select them. Returns a page spec like '1-3,5' or None."""
+    if not interactive():
+        raise RuntimeError(f"Input needed but running non-interactively: pages to {verb}")
     import tkinter as tk
     from tkinter import ttk
 
@@ -824,6 +826,8 @@ def pick_pages(pdf: Path, verb: str, max_pages: int = 400) -> str | None:
 
 def place_signature(pdf: Path, sig_png: bytes) -> dict | None:
     """Show a page; click to place the signature, wheel to resize, ◀ ▶ to change page."""
+    if not interactive():
+        raise RuntimeError("Input needed but running non-interactively: signature position")
     import tkinter as tk
     from tkinter import ttk
 

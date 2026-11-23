@@ -690,3 +690,18 @@ def test_merge_spreadsheets(tmp_path):
     by_name = {r[rows[0].index("name")]: r for r in rows[1:]}
     assert by_name["Kai"][rows[0].index("amount")] == 5 and by_name["Kai"][0] == "feb.csv"
     assert by_name["Ada"][rows[0].index("note")] in ("", None)
+
+
+def test_password_7z(tmp_path):
+    import py7zr
+
+    f = tmp_path / "secret.txt"
+    f.write_text("hidden")
+    arc = tmp_path / "s.7z"
+    with py7zr.SevenZipFile(arc, "w", password="pw") as z:
+        z.write(f, "secret.txt")
+    f.unlink()
+    assert run("arc-extract-folder", arc) == 1  # non-interactive, no password -> friendly error
+    assert run("arc-extract-folder", arc, "-p", "password=nope") == 1
+    assert run("arc-extract-folder", arc, "-p", "password=pw") == 0
+    assert (tmp_path / "s" / "secret.txt").read_text() == "hidden"

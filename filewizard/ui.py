@@ -715,9 +715,23 @@ def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None
             else:
                 status.configure(text=f"Saved: {len(new)} action(s) hidden.")
 
+    def ocr_langs():
+        from .pdf import OCR_LANGUAGES, download_ocr_languages
+
+        chosen = choose_languages(OCR_LANGUAGES, load().get("ocr_langs", ["eng"]))
+        if chosen is None:
+            return
+        try:
+            run_with_progress("Downloading OCR languages", lambda: download_ocr_languages(chosen))
+            save({"ocr_langs": chosen})
+            status.configure(text="OCR languages: " + ", ".join(OCR_LANGUAGES[c] for c in chosen))
+        except Exception as e:
+            status.configure(text=str(e)[:200], foreground="#b00020")
+
     row2 = ttk.Frame(frm)
     row2.pack(fill="x", pady=4)
     ttk.Button(row2, text="Customize menu…", command=customize).pack(side="left", padx=(0, 6))
+    ttk.Button(row2, text="OCR languages…", command=ocr_langs).pack(side="left", padx=(0, 6))
     ttk.Button(row2, text="Check optional tools…", command=lambda: show_text("Optional tools", doctor_text())).pack(side="left")
     ttk.Button(row2, text="Open log", command=lambda: log_path.exists() and open_file(log_path)).pack(side="left", padx=6)
     status.pack(anchor="w", pady=(8, 0))
@@ -998,6 +1012,42 @@ def customize_menu(ops: list, hidden: set[str]) -> set[str] | None:
     ttk.Button(foot, text="Show everything", command=lambda: [
         (state.__setitem__(i, True), tree.item(i, text=mark[True] + tree.item(i, "text")[3:])) for i in state]
     ).pack(side="left")
+    _center(root)
+    root.mainloop()
+    return result["v"]
+
+
+# ---------- OCR languages ----------
+
+def choose_languages(languages: dict[str, str], selected: list[str]) -> list[str] | None:
+    import tkinter as tk
+    from tkinter import ttk
+
+    root = _root(f"{APP_NAME} — OCR languages", hidden=False)
+    frm = ttk.Frame(root, padding=14)
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text="Text recognition will read these languages. Each extra one is a small\n"
+                        "one-time download (2–4 MB).", justify="left").pack(anchor="w", pady=(0, 8))
+    grid = ttk.Frame(frm)
+    grid.pack(fill="x")
+    vars_: dict[str, tk.BooleanVar] = {}
+    for i, (code, name) in enumerate(languages.items()):
+        v = tk.BooleanVar(value=code in selected or code == "eng")
+        cb = ttk.Checkbutton(grid, text=name, variable=v)
+        if code == "eng":
+            cb.state(["disabled"])  # always included
+        cb.grid(row=i // 3, column=i % 3, sticky="w", padx=(0, 18), pady=2)
+        vars_[code] = v
+    result: dict = {"v": None}
+
+    def ok():
+        result["v"] = [c for c, v in vars_.items() if v.get()]
+        root.destroy()
+
+    foot = ttk.Frame(frm)
+    foot.pack(fill="x", pady=(12, 0))
+    ttk.Button(foot, text="Cancel", command=root.destroy).pack(side="right")
+    ttk.Button(foot, text="Save", command=ok).pack(side="right", padx=6)
     _center(root)
     root.mainloop()
     return result["v"]

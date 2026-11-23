@@ -869,3 +869,38 @@ def test_thumbnail_grid(video):
     assert run("vid-grid", video) == 0
     im = Image.open(video.parent / "clip (thumbnails).jpg")
     assert im.width > 4 * 480 and im.height > 4 * 300
+
+
+def test_ocr_language_selection(tmp_path, monkeypatch):
+    from filewizard import settings
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    td = pdf.user_tessdata()
+    (td / "eng.traineddata").write_bytes(b"x")
+    (td / "spa.traineddata").write_bytes(b"x")
+    settings.save({"ocr_langs": ["eng", "spa", "fra"]})  # fra not downloaded yet
+    assert pdf.tessdata() == str(td)
+    assert pdf.ocr_languages() == "eng+spa"
+
+
+def test_ocr_download_uses_one_folder(tmp_path, monkeypatch):
+    import io
+    import urllib.request
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "eng.traineddata").write_bytes(b"eng")
+    monkeypatch.setenv("TESSDATA_PREFIX", str(bundled))
+
+    class Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=60: Resp(b"data-" + url[-20:].encode()))
+    assert pdf.download_ocr_languages(["eng", "deu"]) == ["deu"]
+    td = pdf.user_tessdata()
+    assert (td / "eng.traineddata").read_bytes() == b"eng" and (td / "deu.traineddata").exists()

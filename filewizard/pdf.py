@@ -358,12 +358,75 @@ def grayscale(src: Path, dpi: int = 200) -> list[Path]:
 
 # ---------- OCR (needs Tesseract) ----------
 
+OCR_LANGUAGES = {  # Tesseract code -> name shown in Settings
+    "eng": "English", "spa": "Spanish", "fra": "French", "deu": "German", "por": "Portuguese",
+    "ita": "Italian", "nld": "Dutch", "pol": "Polish", "rus": "Russian", "ukr": "Ukrainian", "kor": "Korean",
+    "jpn": "Japanese", "chi_sim": "Chinese (Simplified)", "chi_tra": "Chinese (Traditional)", "ara": "Arabic",
+    "hin": "Hindi", "vie": "Vietnamese", "tur": "Turkish", "ell": "Greek", "heb": "Hebrew", "swa": "Swahili",
+    "tgl": "Tagalog", "ind": "Indonesian",
+}
+_TESSDATA_URL = "https://github.com/tesseract-ocr/tessdata_fast/raw/main/{code}.traineddata"
+
+
+def user_tessdata() -> Path:
+    from .util import app_dir
+
+    d = app_dir() / "tessdata"
+    d.mkdir(exist_ok=True)
+    return d
+
+
+def ocr_languages() -> str:
+    """'eng+spa' etc.: the languages chosen in Settings that are actually available."""
+    from .settings import load
+
+    wanted = [c for c in load().get("ocr_langs", ["eng"]) if c in OCR_LANGUAGES] or ["eng"]
+    base = tessdata()
+    have = [c for c in wanted if base and Path(base, f"{c}.traineddata").exists()]
+    return "+".join(have or ["eng"])
+
+
+def download_ocr_languages(codes: list[str]) -> list[str]:
+    """Fetch missing language files into the user's tessdata folder (once). Returns the ones fetched."""
+    import shutil
+    import urllib.request
+
+    from .util import report
+
+    dest = user_tessdata()
+    # all languages must sit in ONE folder: bring the bundled English along
+    bundled = tessdata()
+    if bundled and Path(bundled) != dest and Path(bundled, "eng.traineddata").exists() \
+            and not (dest / "eng.traineddata").exists():
+        shutil.copyfile(Path(bundled, "eng.traineddata"), dest / "eng.traineddata")
+    fetched = []
+    todo = [c for c in codes if not (dest / f"{c}.traineddata").exists()]
+    for i, code in enumerate(todo):
+        report(i / max(len(todo), 1), f"Downloading {OCR_LANGUAGES.get(code, code)} ({i + 1} of {len(todo)})")
+        tmp = dest / f"{code}.traineddata.part"
+        try:
+            with urllib.request.urlopen(_TESSDATA_URL.format(code=code), timeout=60) as r, open(tmp, "wb") as f:
+                shutil.copyfileobj(r, f)
+            tmp.replace(dest / f"{code}.traineddata")
+            fetched.append(code)
+        except OSError as e:
+            tmp.unlink(missing_ok=True)
+            raise UserError(f"Couldn't download {OCR_LANGUAGES.get(code, code)} ({e}). Check your internet connection.") from e
+    return fetched
+
+
 def tessdata() -> str | None:
-    """Folder with eng.traineddata. The installer bundles it, so OCR works without installing
-    Tesseract (PyMuPDF has the OCR engine built in and only needs the language data)."""
+    """Folder with the OCR language files. The installer bundles English, so OCR works without
+    installing Tesseract (PyMuPDF has the OCR engine built in and only needs the language data).
+    Extra languages downloaded from Settings live in %LOCALAPPDATA%\\FileWizard\\tessdata."""
     import os
     import sys
 
+    from .util import app_dir
+
+    own = app_dir() / "tessdata"
+    if (own / "eng.traineddata").exists():
+        return str(own)
     env = os.environ.get("TESSDATA_PREFIX")
     if env and Path(env).exists():
         return env
@@ -403,7 +466,7 @@ def ocr(src: Path, dpi: int = 300) -> list[Path]:
             out_doc.insert_pdf(doc, from_page=i, to_page=i)
             continue
         pix = page.get_pixmap(dpi=dpi)
-        ocr_page = pymupdf.open("pdf", pix.pdfocr_tobytes(language="eng", tessdata=td))
+        ocr_page = pymupdf.open("pdf", pix.pdfocr_tobytes(language=ocr_languages(), tessdata=td))
         out_doc.insert_pdf(ocr_page)
     doc.close()
     return [_save(out_doc, sibling(src, "searchable", ".pdf"))]
@@ -423,7 +486,7 @@ def image_to_text(src: Path) -> list[Path]:
     buf = io.BytesIO()
     img.save(buf, "PNG")
     pix = pymupdf.Pixmap(buf.getvalue())
-    d = pymupdf.open("pdf", pix.pdfocr_tobytes(language="eng", tessdata=td))
+    d = pymupdf.open("pdf", pix.pdfocr_tobytes(language=ocr_languages(), tessdata=td))
     text = d[0].get_text()
     if not text.strip():
         raise UserError(f"No text found in {src.name}.")

@@ -131,3 +131,9 @@ def test_customize_menu_dialog(ui):
     from filewizard.operations import OPERATIONS
 
     assert ui.customize_menu(OPERATIONS, {"pdf-compress"}) is None  # closed without saving
+
+
+def test_ocr_languages_dialog(ui):
+    from filewizard.pdf import OCR_LANGUAGES
+
+    assert ui.choose_languages(OCR_LANGUAGES, ["eng"]) is None

@@ -696,8 +696,21 @@ def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None
     row.pack(fill="x", pady=(14, 4))
     ttk.Button(row, text="Repair right-click menu", command=lambda: do(reinstall, "Menu re-installed ✓")).pack(side="left")
     ttk.Button(row, text="Remove right-click menu", command=lambda: do(remove, "Menu removed.")).pack(side="left", padx=6)
+    def customize():
+        from .operations import OPERATIONS
+        from .settings import hidden_actions, set_hidden_actions
+
+        new = customize_menu(OPERATIONS, hidden_actions())
+        if new is not None:
+            set_hidden_actions(new)
+            if load().get("menu") == "classic":
+                do(reinstall, f"Saved: {len(new)} action(s) hidden.")
+            else:
+                status.configure(text=f"Saved: {len(new)} action(s) hidden.")
+
     row2 = ttk.Frame(frm)
     row2.pack(fill="x", pady=4)
+    ttk.Button(row2, text="Customize menu…", command=customize).pack(side="left", padx=(0, 6))
     ttk.Button(row2, text="Check optional tools…", command=lambda: show_text("Optional tools", doctor_text())).pack(side="left")
     ttk.Button(row2, text="Open log", command=lambda: log_path.exists() and open_file(log_path)).pack(side="left", padx=6)
     status.pack(anchor="w", pady=(8, 0))
@@ -923,4 +936,59 @@ def place_signature(pdf: Path, sig_png: bytes) -> dict | None:
     _center(root)
     root.mainloop()
     doc.close()
+    return result["v"]
+
+
+# ---------- customize menu ----------
+
+def customize_menu(ops: list, hidden: set[str]) -> set[str] | None:
+    """Tick the actions to show. Returns the new set of hidden ids, or None if cancelled."""
+    from tkinter import ttk
+
+    root = _root(f"{APP_NAME} — Customize menu", hidden=False)
+    frm = ttk.Frame(root, padding=12)
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text="Untick actions you never use. They stay available under “All actions…”.",
+              wraplength=520).pack(anchor="w", pady=(0, 6))
+    tree = ttk.Treeview(frm, show="tree", height=22, selectmode="none")
+    tree.pack(fill="both", expand=True)
+    tree.column("#0", width=520)
+    state: dict[str, bool] = {}
+    groups: dict[str, str] = {}
+    mark = {True: "☑  ", False: "☐  "}
+    for op in ops:
+        if op.id in ("palette", "settings"):
+            continue
+        g = op.menu[0] if op.menu else {"convert": "Convert", "combine": "Combine", "edit": "Edit",
+                                        "extract": "Extract", "archive": "Archives", "more": "More"}.get(op.group, "Other")
+        if g not in groups:
+            groups[g] = tree.insert("", "end", text=g, open=False)
+        shown = op.id not in hidden
+        state[op.id] = shown
+        exts = sorted(e for e in op.exts if e.startswith("."))[:4]
+        hint = ("   (" + ", ".join(exts) + ("…" if len(op.exts) > 4 else "") + ")") if exts else ""
+        tree.insert(groups[g], "end", iid=op.id, text=mark[shown] + op.label + hint)
+
+    def toggle(event):
+        iid = tree.identify_row(event.y)
+        if iid in state:
+            state[iid] = not state[iid]
+            tree.item(iid, text=mark[state[iid]] + tree.item(iid, "text")[3:])
+
+    tree.bind("<Button-1>", toggle)
+    result: dict = {"v": None}
+
+    def ok():
+        result["v"] = {i for i, shown in state.items() if not shown}
+        root.destroy()
+
+    foot = ttk.Frame(frm)
+    foot.pack(fill="x", pady=(8, 0))
+    ttk.Button(foot, text="Cancel", command=root.destroy).pack(side="right")
+    ttk.Button(foot, text="Save", command=ok).pack(side="right", padx=6)
+    ttk.Button(foot, text="Show everything", command=lambda: [
+        (state.__setitem__(i, True), tree.item(i, text=mark[True] + tree.item(i, "text")[3:])) for i in state]
+    ).pack(side="left")
+    _center(root)
+    root.mainloop()
     return result["v"]

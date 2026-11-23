@@ -125,3 +125,9 @@ def _restore_theme():
     import filewizard.ui as module
 
     importlib.reload(module)
+
+
+def test_customize_menu_dialog(ui):
+    from filewizard.operations import OPERATIONS
+
+    assert ui.customize_menu(OPERATIONS, {"pdf-compress"}) is None  # closed without saving

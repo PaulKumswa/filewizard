@@ -190,20 +190,21 @@ static bool LoadManifest(Manifest& m) {
     return !m.command.empty() && !m.types.empty();
 }
 
-// Recently used action ids (most recent first), written by FileWizard after each job.
-static std::vector<std::wstring> LoadRecent() {
+// Small per-user id lists in %LOCALAPPDATA%\FileWizard: recent.txt (most recent first, written
+// after each job) and hidden.txt (actions the user turned off in Settings > Customize menu).
+static std::vector<std::wstring> LoadIdList(const wchar_t* name, size_t maxIds) {
     std::vector<std::wstring> ids;
-    HANDLE f = CreateFileW((AppDir() + L"\\recent.txt").c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE,
+    HANDLE f = CreateFileW((AppDir() + L"\\" + name).c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE,
                            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (f == INVALID_HANDLE_VALUE) return ids;
-    char buf[4096];
+    std::vector<char> buf(65536);  // heap, not stack: we're running on one of Explorer's threads
     DWORD n = 0;
-    BOOL ok = ReadFile(f, buf, sizeof(buf) - 1, &n, nullptr);
+    BOOL ok = ReadFile(f, buf.data(), (DWORD)buf.size() - 1, &n, nullptr);
     CloseHandle(f);
     if (!ok) return ids;
-    std::wstring text = Utf8ToWide(std::string(buf, n));
+    std::wstring text = Utf8ToWide(std::string(buf.data(), n));
     size_t pos = 0;
-    while (pos < text.size() && ids.size() < 10) {
+    while (pos < text.size() && ids.size() < maxIds) {
         size_t nl = text.find(L'\n', pos);
         std::wstring line = text.substr(pos, nl == std::wstring::npos ? std::wstring::npos : nl - pos);
         pos = nl == std::wstring::npos ? text.size() : nl + 1;
@@ -240,10 +241,11 @@ static void CollectIds(const std::vector<Node>& nodes, std::unordered_set<std::w
 // Keep items that every selected type supports; drop multi-file items for single selections;
 // then tidy up empty submenus and doubled/edge separators.
 static std::vector<Node> Filter(const std::vector<Node>& nodes, const std::vector<std::unordered_set<std::wstring>>& others,
-                                size_t count) {
+                                size_t count, const std::unordered_set<std::wstring>& hidden) {
     std::vector<Node> out;
     for (auto& n : nodes) {
         if (n.kind == Node::Item) {
+            if (hidden.count(n.id)) continue;
             if (n.multi && count < 2) continue;
             if (n.mixed && others.empty()) continue;
             bool everywhere = true;
@@ -256,7 +258,7 @@ static std::vector<Node> Filter(const std::vector<Node>& nodes, const std::vecto
             }
         } else if (n.kind == Node::Menu) {
             Node copy = n;
-            copy.children = Filter(n.children, others, count);
+            copy.children = Filter(n.children, others, count, hidden);
             bool any = false;
             for (auto& c : copy.children) if (c.kind != Node::Separator) { any = true; break; }
             if (any) out.push_back(copy);
@@ -423,12 +425,14 @@ public:
                 if (t) CollectIds(*t, ids);
                 others.push_back(ids);
             }
-            std::vector<Node> nodes = Filter(*base, others, m_files.size());
+            std::vector<std::wstring> hiddenList = LoadIdList(L"hidden.txt", 1000);
+            std::unordered_set<std::wstring> hidden(hiddenList.begin(), hiddenList.end());
+            std::vector<Node> nodes = Filter(*base, others, m_files.size(), hidden);
             if (nodes.empty()) return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
 
             // up to 3 recently used actions that apply here, on top for one-hover access
             std::vector<Node> recent;
-            for (auto& id : LoadRecent()) {
+            for (auto& id : LoadIdList(L"recent.txt", 10)) {
                 if (recent.size() >= 3 || id == L"palette") continue;
                 std::wstring path;
                 const Node* hit = FindItem(nodes, id, path);

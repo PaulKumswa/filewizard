@@ -99,7 +99,8 @@ def fit_classic(ops: list) -> list:
     return sorted(chosen, key=lambda op: order[op.id]) + palette
 
 
-def build_entries(command_prefix: str, icon: str | None, compact: bool = True) -> Entries:
+def build_entries(command_prefix: str, icon: str | None, compact: bool = True,
+                  hidden: set[str] | None = None) -> Entries:
     """All registry keys/values to create. `command_prefix` gets ` <op-id> "%1"` appended."""
     entries: Entries = []
     sub_idx = _submenu_index()
@@ -109,6 +110,8 @@ def build_entries(command_prefix: str, icon: str | None, compact: bool = True) -
         if not ops:
             continue
         target = '"%V"' if ext == BACKGROUND else '"%1"'  # %V = the folder you right-clicked inside
+        if hidden:
+            ops = [op for op in ops if op.id not in hidden]
         if compact:
             ops = fit_classic(ops)
         base = _menu_root(ext)
@@ -569,7 +572,9 @@ def install(mode: str = "auto") -> str:
         _say(f"Installed the full {APP_NAME} menu (native handler: {dll}).")
         used = "native"
     else:
-        entries = build_entries(command_prefix(launcher), icon)
+        from .settings import hidden_actions
+
+        entries = build_entries(command_prefix(launcher), icon, hidden=hidden_actions())
         hk = winreg.HKEY_CURRENT_USER
         types = {REG_SZ: winreg.REG_SZ, REG_DWORD: winreg.REG_DWORD}
         for key, vals in entries:

@@ -517,3 +517,10 @@ def test_palette_choices_follow_selection(tmp_path):
     two = {op.id for op in for_selection([a, b])}
     assert "combine-pdf" not in one and "img-make-gif" not in one and "img-to-png" in one
     assert "combine-pdf" in two and "img-make-gif" in two
+
+
+def test_hidden_actions_removed_from_classic_menu():
+    entries = dict(shell_menu.build_entries("x", None, hidden={"pdf-compress", "pdf-rotate-right"}))
+    pdf_keys = [k for k in entries if "\\.pdf\\shell" in k]
+    assert not any(k.endswith("pdf-compress") or k.endswith("pdf-rotate-right") for k in pdf_keys)
+    assert any(k.endswith("pdf-rotate-left") for k in pdf_keys)

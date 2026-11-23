@@ -325,3 +325,15 @@ def test_win11_full_menu_toggle_roundtrip():
         assert not shell_menu.win11_full_menu_enabled()
     finally:
         shell_menu.set_win11_full_menu(before)
+
+
+@native_only
+def test_native_hidden_actions(tmp_path):
+    from filewizard.settings import set_hidden_actions
+
+    set_hidden_actions({"pdf-split"})
+    try:
+        text = "\n".join(shell_probe.dump([_pdf(tmp_path / "h.pdf")]))
+        assert "Split into single pages" not in text and "Extract pages" in text
+    finally:
+        set_hidden_actions(set())

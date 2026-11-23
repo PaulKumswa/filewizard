@@ -1,92 +1,126 @@
 # FileWizard
 
-Right-click file conversions and PDF tools for Windows File Explorer, so you don't have to
-upload your files to random websites.
-
-Right-click a file → **FileWizard** → pick an action. The result is saved next to the
-original (nothing is ever overwritten, e.g. `report (merged).pdf`, `photo (2).png`).
+**Right-click any file → FileWizard ▸ → done.** Convert, compress, merge, trim and fix files
+straight from Windows File Explorer, without uploading them to random websites.
 Everything runs locally on your PC.
 
-## What it does
+```
+FileWizard ▸
+    Convert to ▸      PDF · PNG · JPG · WebP · HEIC · AVIF · GIF · TIFF · ICO …
+    ─────────
+    Merge selected PDFs…          ← only appears when you've selected several
+    ─────────
+    Compress
+    Pages ▸           Split · Extract… · Delete… · Reverse · Remove blank pages
+    Rotate ▸          Right · Left · 180°
+    Edit ▸            Page numbers · Watermark… · Black & white · Flatten forms
+    Password ▸        Add… · Remove…
+    ─────────
+    Make searchable (OCR)
+    Extract ▸         Images
+    ─────────
+    More ▸            ZIP · 7z · Rename selected… · Checksum
+    ─────────
+    All actions…      ← searchable list of everything
+```
 
-| On… | Actions |
+The menu adapts to what you right-clicked and how many files are selected.
+
+## What it can do
+
+| Right-click on… | Actions |
 |---|---|
-| **Word / PowerPoint / Excel** (`.docx .doc .rtf .odt .txt .pptx .ppt .odp .xlsx .xls .ods`) | Convert to PDF · old formats (`.doc .rtf .odt`) → `.docx` |
-| **PDF** | Convert to Word, PNG, JPG (one image per page), text · **Merge** selected PDFs · Split into pages · Extract pages · Delete pages · Rotate · Reverse order · Add page numbers · Compress · Extract images · Add / remove password |
-| **Images** (`.jpg .png .webp .heic .gif .bmp .tiff .ico`) | Convert to PDF, PNG, JPG, WebP, ICO, BMP, TIFF · **Combine** selected into one PDF · Resize · Compress · Rotate · Remove location/camera info |
+| **Images** — JPG, PNG, WebP, **HEIC** (iPhone), AVIF, GIF, TIFF, BMP, ICO, **SVG**, PSD, TGA, JPEG 2000, **camera RAW** (CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF…) | Convert to PDF/PNG/JPG/WebP/HEIC/AVIF/GIF/TIFF/BMP/ICO (animations stay animated) · Combine into one PDF · Contact sheet · Compress · Resize (25/50/75%, 4K, Full HD, 1280, 800, custom) · Rotate/flip · Black & white · Crop borders · Pad to square · Remove background (AI, optional) · Copy text out of image (OCR) · Remove location/camera info |
+| **PDF** | Convert to Word, PNG, JPG, text · **Merge** · Split · Extract/delete pages · Reverse · Remove blank pages · Rotate · Compress · Page numbers · Watermark · Black & white · Flatten forms · Add/remove password · Make searchable (OCR) · Extract images |
+| **Video** — MP4, MOV, MKV, WebM, AVI, WMV, FLV, MPG, 3GP, TS/MTS… | Convert to MP4/MKV/WebM/MOV/AVI/WMV/GIF (instant, lossless when only the container changes) · Extract audio (MP3/M4A/WAV) · **Compress** (same look, or **fit under 10 MB / 25 MB / 100 MB / any size** for Discord, email…) · Resize 1080p/720p/480p · **Trim** · Rotate/flip · Speed 0.5×–2× · Fix volume · Remove sound · **Join** selected · Save a frame / extract frames |
+| **Audio** — MP3, WAV, FLAC, M4A, AAC, OGG, Opus, WMA, AIFF… | Convert to MP3/M4A/WAV/FLAC/OGG/Opus/AIFF · Compress · Trim · Speed · Fix volume · Join selected |
+| **Word / PowerPoint / Excel** (incl. old .doc/.ppt/.xls and OpenDocument) | Convert to PDF · old formats → .docx/.pptx/.xlsx · Combine into one PDF |
+| **Ebooks** — EPUB, MOBI, FB2, XPS, CBZ | Convert to PDF or text |
+| **Markdown / HTML / text** | Convert to PDF (Markdown also to a styled web page) |
+| **Data** — CSV, TSV, Excel, JSON | Convert between CSV ⇄ Excel ⇄ JSON (keeps leading zeros, handles `;` CSVs and Windows encodings) |
+| **Archives** — ZIP, 7z, TAR, GZ, RAR, ISO… | Extract here · Extract to folder (protected against malicious "zip-slip" archives) |
+| **Any file or folder** | Compress to ZIP / 7z · Rename selected… (`Trip {n}` → Trip 01, Trip 02…) · Checksum (SHA-256) · Folders: combine all PDFs/images inside into one PDF |
+| **A mix** (e.g. 2 PDFs + a photo + a Word doc) | **Combine selected into one PDF**, with a bookmark per file |
 
-**Multiple files:** select several, right-click one, and choose the action. Batch actions
-like *Merge* and *Combine into one PDF* first show a window where you can reorder files.
-Actions that ask a question (pages, password, size) ask once for the whole selection.
+Results are saved **next to the original**, never overwriting anything (`report (merged).pdf`,
+`photo (2).png`). When a job finishes, a small notification offers **Open** and **Show in folder**.
+Long jobs show a progress bar with **Cancel**.
 
 ## Install
 
-1. Install **Python 3.10+ from [python.org](https://www.python.org/downloads/)**. During
-   setup, tick *"Add python.exe to PATH"*. Don't use the Microsoft Store version: it's
-   sandboxed, so Explorer can't see the menu it creates (the installer checks for this).
-2. Download this repo (Code → Download ZIP), unzip it, and double-click **`install.bat`**.
+**Easiest: the installer (no Python needed).**
+Download `FileWizard-Setup.exe` from the latest successful
+[CI run](../../actions/workflows/ci.yml) (Artifacts → *FileWizard-Setup*), run it, done.
+It installs for your user only (no admin rights) and puts the full menu in place.
 
-No admin rights are needed; the menu is added for your user account only.
-To remove it, run **`uninstall.bat`**.
+**From source (developers):**
+```
+pip install .
+python -m filewizard install        # classic menu (see "Two menu modes")
+```
 
-**Word/PowerPoint/Excel → PDF** uses Microsoft Office if you have it (identical to *Save as PDF*).
-Without Office, install the free [LibreOffice](https://www.libreoffice.org/) and it's used automatically.
+### Optional extras
+- **Microsoft Office or [LibreOffice](https://www.libreoffice.org/)**: needed for Word/PowerPoint/Excel → PDF
+  (Office gives identical output to *Save as PDF*; LibreOffice is the free fallback).
+- **[Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki)**: for *Make searchable* and
+  *Copy text out of image*.
+- **AI background removal**: `pip install rembg` (downloads a ~170 MB model on first use).
+- **7-Zip**: lets *Extract* open RAR/ISO on older Windows versions.
 
-Run `python -m filewizard doctor` to see which optional pieces are available.
+Check what's available: Start menu → *FileWizard settings* → *Check optional tools*, or `filewizard doctor`.
 
-### Windows 11 note
-Windows 11's new, short right-click menu only accepts apps packaged as signed MSIX, so FileWizard
-shows up under **"Show more options"** (or **Shift + right-click**, or **Shift + F10**).
+### Windows 11
+The new short right-click menu only accepts apps shipped as signed Store packages, so
+FileWizard is under **"Show more options"**, or press **Shift + right-click** to go straight there.
+
+## Two menu modes
+
+| | **Full menu** (installer) | **Classic** (`pip` install) |
+|---|---|---|
+| How | Small native shell extension (`fwshell.dll`) | Plain registry entries |
+| Size | Every action | Windows caps these menus at **16 entries**, so the most-used ones are shown, plus **All actions…** |
+| Multi-select aware | ✅ "Merge" only appears with 2+ files; mixed selections show shared actions | Shows every action; asks to add files if needed |
+| One process per click | ✅ | Explorer starts one process per file; FileWizard gathers them into one job |
+
+The 16-entry limit isn't a guess: CI measured it on real Windows (see `docs/BUILD_LOG.md`).
 
 ## Command line
 
-Every action also works from a terminal:
+Everything works from a terminal too:
 
 ```
-python -m filewizard list                               # all actions and their IDs
-python -m filewizard run pdf-merge a.pdf b.pdf c.pdf
-python -m filewizard run pdf-extract big.pdf -p pages=1-3,7,10-
-python -m filewizard run img-resize *.jpg -p size=1920
-python -m filewizard export-reg menu.reg                # see exactly what install writes
+filewizard list                                   # every action and its ID
+filewizard menu .mp4                              # preview the right-click menu for a type
+filewizard run combine-pdf a.pdf photo.jpg memo.docx
+filewizard run vid-under-custom clip.mov -p mb=8
+filewizard run pdf-extract big.pdf -p pages=1-3,7,10-
+filewizard run media-trim talk.mp4 -p span=1:30-4:05
+filewizard settings | doctor | install | uninstall
 ```
 
-Page ranges: `1-3,5` · `8-` (8 to end) · `-3` (1 to 3) · `last`.
-Resize: `50%` · `1920` (longest side in px) · `800x600` (fit inside).
+Page ranges: `1-3,5` · `8-` (to the end) · `-3` · `last`. Times: `90`, `1:30`, `0:10-1:25`, `1:00-`.
 
-## Known limitations
+## How it works
 
-- **PDF → Word** is a best-effort reconstruction (via `pdf2docx`). Simple documents convert
-  well; complex layouts, forms and scans won't be perfect. Every tool, paid or free, has this
-  problem, because PDFs don't store paragraphs.
-- **Scanned PDFs** (images of text) have no OCR yet: *to text* and *to Word* need real text.
-- **Compress** mainly shrinks PDFs with large images. Text-only PDFs are usually already small,
-  and if compressing wouldn't save much, nothing is written.
-- **Password removal** needs the password. This removes protection you're entitled to remove;
-  it doesn't crack anything. PDFs that open freely but block printing/copying are unlocked
-  without one.
-- After updating the code, run `install.bat` again.
-- Logs: `%LOCALAPPDATA%\FileWizard\filewizard.log`.
-
-## How it works (for the curious)
-
-- Menu entries live in `HKCU\Software\Classes\SystemFileAssociations\<.ext>\shell\FileWizard`,
-  a cascading submenu that works no matter which app opens that file type.
-- Explorer starts one process **per selected file**. `filewizard/collector.py` has them
-  elect a leader through an atomic lock folder; the leader gathers every path, then runs
-  the action once. That's what makes *Merge* work from a right-click.
-- Explorer runs `pythonw.exe %LOCALAPPDATA%\FileWizard\launch.pyw` (no console window).
-  Using a script rather than `python -m` keeps the clicked folder off Python's import path.
-- Libraries: [PyMuPDF](https://pymupdf.readthedocs.io/) (PDF), [Pillow](https://python-pillow.org/)
-  (images), [pillow-heif](https://github.com/bigcat88/pillow_heif) (iPhone photos),
-  [pdf2docx](https://github.com/ArtifexSoftware/pdf2docx), pywin32 (driving Office).
-  PyMuPDF is AGPL-licensed: fine for personal use; check the license if you ever distribute
-  this commercially.
+- **Menu.** Native mode: `native/fwshell.cpp` implements `IContextMenu` and reads a manifest
+  (`%LOCALAPPDATA%\FileWizard\menu.tsv`) that `filewizard install` generates from the action
+  catalog in `filewizard/operations.py`, so new actions need no recompile. Classic mode uses
+  `HKCU\Software\Classes\SystemFileAssociations\<ext>\shell\FileWizard` cascades plus a `*`
+  entry with an `AppliesTo` filter for unknown types.
+- **Multi-select (classic mode).** Explorer starts one process per selected file;
+  `filewizard/collector.py` elects a leader via an atomic lock folder, which gathers all paths
+  and runs the action once.
+- **Engines.** PyMuPDF (PDF, ebooks, SVG), Pillow + pillow-heif + rawpy (images), bundled
+  ffmpeg via imageio-ffmpeg (video/audio), pdf2docx, Office COM / LibreOffice, py7zr, openpyxl.
+  PyMuPDF is AGPL: fine for personal use; check the license before distributing commercially.
+- **Testing.** CI runs the unit tests on Windows and Linux, then drives the **real Windows
+  shell context menu**: it builds the menu through the same COM interfaces Explorer uses,
+  hovers submenus and clicks items (including multi-select merges and mixed selections),
+  against both a dev install and the frozen installer build.
 
 ## Development
 
 ```
 pip install -e ".[dev]"
-python -m pytest
+python -m pytest                    # ~100 tests; media tests use the bundled ffmpeg
 ```
-The tests run on Linux too (registry code is tested as data; Office conversion is tested via
-LibreOffice when installed).

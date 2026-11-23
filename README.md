@@ -51,7 +51,8 @@ Long jobs show a progress bar with **Cancel**.
 **Easiest: the installer (no Python needed).**
 Download `FileWizard-Setup.exe` from the latest successful
 [CI run](../../actions/workflows/ci.yml) (Artifacts → *FileWizard-Setup*), run it, done.
-It installs for your user only (no admin rights) and puts the full menu in place.
+It asks for admin rights once (it installs to Program Files for all users, because Windows reliably
+loads all-users menu extensions: we measured this in CI) and puts the full menu in place.
 
 **From source (developers):**
 ```

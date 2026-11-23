@@ -178,6 +178,12 @@ settings and downloaded OCR languages, and turns the Windows 11 full-menu option
 turned it on. CI checks that nothing is left behind. One quirk: if Explorer still has the menu extension
 loaded, Windows deletes that one file at your next restart.
 
+## Credits
+
+Designed and directed by Paul Kumswa. Built with [Claude Code](https://claude.com/claude-code)
+(Anthropic's Claude), which wrote most of the code, tests and CI under that direction. Thanks also to
+the open-source projects FileWizard stands on, listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+
 ## License
 
 FileWizard's own code is [MIT-licensed](LICENSE).

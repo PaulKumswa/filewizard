@@ -323,6 +323,8 @@ def _build() -> list[Operation]:
         help="Select several files (PDFs, images, Word, PowerPoint, …), right-click one, choose this.")
     add("data-merge", "Combine selected into one spreadsheet", {".csv", ".tsv", ".xlsx", ".xlsm", ".json"}, "combine",
         batch=lambda ps, prm: docs.merge_tables(_ordered(ps, prm)))
+    add("pdf-compare", "Compare the two (show differences)", PDF_EXTS, "combine",
+        batch=lambda ps, prm: pdf.compare(_ordered(ps, prm)))
     add("media-join", "Join selected…", VIDEO_EXTS | AUDIO_EXTS, "combine",
         batch=lambda ps, prm: media.merge(_ordered(ps, prm)),
         ask=_ask_order("Join files", add_types=VIDEO_EXTS | AUDIO_EXTS))
@@ -542,11 +544,11 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-to-pptx", "img-white-bg", "settings", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-to-pptx", "img-white-bg", "settings", "pdf-compare", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MIXED = {"media-soundtrack"}
-MULTI = {"data-merge", "media-soundtrack", "combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h", "img-make-gif",
+MULTI = {"pdf-compare", "data-merge", "media-soundtrack", "combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h", "img-make-gif",
          "img-slideshow"}
 
 

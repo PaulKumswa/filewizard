@@ -739,3 +739,20 @@ def test_pdf_to_pptx(tmp_path):
     assert run("pdf-to-pptx", src) == 0
     prs = pptx.Presentation(tmp_path / "lecture.pptx")
     assert len(prs.slides) == 3
+
+
+def test_pdf_compare(tmp_path):
+    def make(path, words):
+        d = pymupdf.open()
+        p = d.new_page()
+        for i, w in enumerate(words):
+            p.insert_text((72, 72 + 20 * i), w)
+        d.save(path)
+        return path
+
+    a = make(tmp_path / "v1.pdf", ["The rent is $900.", "Pets allowed."])
+    b = make(tmp_path / "v2.pdf", ["The rent is $950.", "Pets allowed."])
+    assert run("pdf-compare", a, b) == 0
+    html = (tmp_path / "v1 (comparison).html").read_text(encoding="utf-8")
+    assert "950" in html and "900" in html and "1 changed passage" in html
+    assert run("pdf-compare", a, a) == 1  # identical: friendly message

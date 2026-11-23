@@ -737,3 +737,38 @@ def to_pptx(src: Path, dpi: int = 150) -> list[Path]:
     out = sibling(src, None, ".pptx")
     prs.save(out)
     return [out]
+
+
+def compare(files: list[Path]) -> list[Path]:
+    """Two PDFs -> side-by-side HTML report of what changed in the text."""
+    import difflib
+    import html
+
+    if len(files) != 2:
+        raise UserError("Select exactly two PDFs to compare.")
+    texts = []
+    for f in files:
+        doc = _open(f)
+        lines = []
+        for i, page in enumerate(doc, 1):
+            lines.append(f"── page {i} ──")
+            lines += [ln.rstrip() for ln in page.get_text().splitlines() if ln.strip()]
+        doc.close()
+        texts.append(lines)
+    if texts[0] == texts[1]:
+        raise UserError(f"No text differences between {files[0].name} and {files[1].name}.")
+    table = difflib.HtmlDiff(wrapcolumn=80).make_table(texts[0], texts[1], html.escape(files[0].name),
+                                                         html.escape(files[1].name), context=True, numlines=3)
+    changed = sum(1 for op in difflib.SequenceMatcher(None, texts[0], texts[1]).get_opcodes() if op[0] != "equal")
+    page = f"""<!doctype html><html><head><meta charset="utf-8"><title>Comparison</title><style>
+body{{font-family:Segoe UI,sans-serif;margin:24px;color:#1b1b1b}} table.diff{{font-family:Consolas,monospace;
+font-size:13px;border-collapse:collapse;width:100%}} td{{padding:2px 6px;vertical-align:top}}
+.diff_header{{background:#eef0f4;color:#666}} .diff_add{{background:#d9f5dd}} .diff_chg{{background:#fff3c4}}
+.diff_sub{{background:#fbd9d9}} th.diff_next{{display:none}} td.diff_next{{display:none}}
+@media (prefers-color-scheme: dark){{body{{background:#1e1e1e;color:#eee}} .diff_header{{background:#2b2b2b;color:#aaa}}
+.diff_add{{background:#1f4d2b}} .diff_chg{{background:#4d4318}} .diff_sub{{background:#5a2323}}}}
+</style></head><body><h2>{html.escape(files[0].name)} ↔ {html.escape(files[1].name)}</h2>
+<p>{changed} changed passage(s). Green = added, red = removed, yellow = changed.</p>{table}</body></html>"""
+    out = sibling(files[0], "comparison", ".html")
+    out.write_text(page, encoding="utf-8")
+    return [out]

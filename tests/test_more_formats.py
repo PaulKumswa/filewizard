@@ -846,3 +846,20 @@ def test_more_containers_registered():
 
     for ext in (".rmvb", ".divx", ".caf", ".pages", ".numbers", ".key", ".vsdx", ".otf"):
         assert for_ext(ext), ext
+
+
+def test_tar_symlink_escape_blocked(tmp_path):
+    import io
+
+    evil = tmp_path / "evil.tar"
+    with tarfile.open(evil, "w") as t:
+        info = tarfile.TarInfo("innocent")
+        info.type = tarfile.SYMTYPE
+        info.linkname = "../../../etc/passwd"
+        t.addfile(info)
+        data = b"x"
+        f = tarfile.TarInfo("ok.txt")
+        f.size = len(data)
+        t.addfile(f, io.BytesIO(data))
+    assert run("arc-extract-folder", evil) == 1
+    assert not (tmp_path / "evil").exists()

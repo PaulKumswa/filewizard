@@ -81,3 +81,21 @@ def test_slides_to_png(tmp_path):
     assert run("office-to-png", src) == 0
     assert len(list((tmp_path / "Deck (png)").glob("*.png"))) == 2
     assert not list(tmp_path.glob("*.pdf"))  # no stray temp PDF
+
+
+def test_compress_pptx_pictures(tmp_path):
+    pptx = pytest.importorskip("pptx")
+    from PIL import Image
+
+    big = tmp_path / "photo.jpg"
+    Image.effect_noise((4000, 3000), 30).convert("RGB").save(big, quality=98)
+    prs = pptx.Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    slide.shapes.add_picture(str(big), 0, 0, width=prs.slide_width)
+    src = tmp_path / "Deck.pptx"
+    prs.save(src)
+    assert run("office-compress", src) == 0
+    out = tmp_path / "Deck (compressed).pptx"
+    assert out.stat().st_size < src.stat().st_size * 0.6
+    reopened = pptx.Presentation(out)  # still a valid deck
+    assert len(reopened.slides) == 1

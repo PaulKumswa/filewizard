@@ -195,3 +195,56 @@ def to_images(src: Path, ext: str = ".png") -> list[Path]:
             shutil.move(str(img), dest)
             outs.append(dest)
         return outs
+
+
+OOXML_EXTS = {".docx", ".docm", ".pptx", ".pptm", ".xlsx", ".xlsm"}
+
+
+def compress_ooxml(src: Path, max_px: int = 1920, quality: int = 78) -> list[Path]:
+    """Shrink a Word/PowerPoint/Excel file by downsizing its embedded pictures.
+
+    These files are ZIPs; pictures live in */media/. JPEGs are re-encoded, oversized PNGs are
+    scaled down (staying PNG so nothing else in the file needs to change)."""
+    import io
+    import zipfile
+
+    from PIL import Image
+
+    from .util import human_size, report, sibling
+
+    before = src.stat().st_size
+    out = sibling(src, "compressed", src.suffix.lower())
+    try:
+        zin = zipfile.ZipFile(src)
+    except zipfile.BadZipFile as e:
+        raise UserError(f"{src.name} isn't a modern Office file (or it's password-protected).") from e
+    with zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zout:
+        items = zin.infolist()
+        for i, item in enumerate(items):
+            data = zin.read(item.filename)
+            name = item.filename.lower()
+            if "/media/" in name and name.endswith((".jpg", ".jpeg", ".png")):
+                try:
+                    im = Image.open(io.BytesIO(data))
+                    im.load()
+                    scaled = max(im.size) > max_px
+                    if scaled:
+                        im.thumbnail((max_px, max_px), Image.LANCZOS)
+                    buf = io.BytesIO()
+                    if name.endswith(".png"):
+                        if scaled:
+                            im.save(buf, "PNG", optimize=True)
+                    else:
+                        im.convert("RGB").save(buf, "JPEG", quality=quality, optimize=True, progressive=True)
+                    if buf.tell() and buf.tell() < len(data):
+                        data = buf.getvalue()
+                except Exception:
+                    pass  # unusual image: keep the original bytes
+            # [Content_Types].xml must stay first and uncompressed-friendly; keep order as-is
+            zout.writestr(item, data, compress_type=zipfile.ZIP_STORED if name == "mimetype" else zipfile.ZIP_DEFLATED)
+            report((i + 1) / len(items), f"Compressing {src.name}")
+    after = out.stat().st_size
+    if after > before * 0.95:
+        out.unlink()
+        raise UserError(f"{src.name} has no big pictures to shrink ({human_size(before)}); nothing saved.")
+    return [out]

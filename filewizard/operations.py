@@ -327,6 +327,8 @@ def _build() -> list[Operation]:
     add("img-under-custom", "Under a size I choose…", IMG_IN, "edit", menu=IC,
         per_file=lambda p, prm: images.compress_to(p, int(_kb_value(prm["size"]))),
         ask=_ask_text("size", "Make the image smaller than (e.g. 300 KB or 2 MB):", "500 KB"), param_names=("size",))
+    add("office-compress", "Compress (shrink pictures)", {".docx", ".docm", ".pptx", ".pptm", ".xlsx", ".xlsm"},
+        "edit", per_file=lambda p, _: office.compress_ooxml(p))
     add("aud-compress", "Compress", AUDIO_EXTS, "edit", per_file=lambda p, _: media.compress_audio(p))
     VC = ("Compress",)
     add("vid-compress", "Smaller file, same look", VIDEO_EXTS, "edit", menu=VC,

@@ -36,16 +36,66 @@ def _com_available() -> bool:
     return True
 
 
+_EXE = {"Word.Application": "WINWORD.EXE", "PowerPoint.Application": "POWERPNT.EXE",
+        "Excel.Application": "EXCEL.EXE"}
+OFFICE_TIMEOUT = 180  # seconds before a stuck Office instance is ended
+_WATCH: dict = {}
+
+
+def _pids(image: str) -> set[int]:
+    r = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {image}", "/FO", "CSV", "/NH"], capture_output=True,
+                       text=True, creationflags=0x08000000)
+    pids = set()
+    for line in r.stdout.splitlines():
+        parts = [p.strip('"') for p in line.split('","')]
+        if len(parts) > 1 and parts[1].isdigit():
+            pids.add(int(parts[1]))
+    return pids
+
+
+def _watchdog(pid: int, done) -> None:
+    """End OUR Office process if it's stuck (hidden dialog) or the user pressed Cancel."""
+    import time
+
+    from .util import PROGRESS
+
+    start = time.monotonic()
+    while not done.is_set():
+        if PROGRESS.cancelled or time.monotonic() - start > OFFICE_TIMEOUT:
+            subprocess.run(["taskkill", "/f", "/pid", str(pid)], capture_output=True, creationflags=0x08000000)
+            return
+        done.wait(1.0)
+
+
 def _com_app(progid: str):
+    """A fresh, private Office instance (never the user's open Word) plus a watchdog on it."""
+    import threading
+
     import pythoncom
     import win32com.client
 
     pythoncom.CoInitialize()
+    image = _EXE.get(progid, "")
+    before = _pids(image) if image else set()
     try:
-        app = win32com.client.DispatchEx(progid)  # a fresh instance; never hijack the user's open Word
+        app = win32com.client.DispatchEx(progid)
     except Exception:
         return None
+    new = (_pids(image) - before) if image else set()
+    if len(new) == 1:
+        done = threading.Event()
+        threading.Thread(target=_watchdog, args=(new.pop(), done), daemon=True).start()
+        _WATCH[id(app)] = done  # set when we're finished with it
     return app
+
+
+def _release(app) -> None:
+    try:
+        app.Quit()
+    finally:
+        done = _WATCH.pop(id(app), None)  # (not an attribute: COM objects treat those as properties)
+        if done:
+            done.set()
 
 
 def _via_msoffice(src: Path, out: Path, target: str) -> bool:
@@ -70,7 +120,7 @@ def _via_msoffice(src: Path, out: Path, target: str) -> bool:
             finally:
                 doc.Close(False)
         finally:
-            app.Quit()
+            _release(app)
         return True
     if ext in SLIDE_EXTS:
         app = _com_app("PowerPoint.Application")
@@ -83,7 +133,7 @@ def _via_msoffice(src: Path, out: Path, target: str) -> bool:
             finally:
                 pres.Close()
         finally:
-            app.Quit()
+            _release(app)
         return True
     if ext in SHEET_EXTS:
         app = _com_app("Excel.Application")
@@ -102,7 +152,7 @@ def _via_msoffice(src: Path, out: Path, target: str) -> bool:
             finally:
                 wb.Close(False)
         finally:
-            app.Quit()
+            _release(app)
         return True
     return False
 

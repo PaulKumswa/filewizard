@@ -102,7 +102,10 @@ def extract(src: Path, here: bool = False, password: str | None = None) -> list[
             with tarfile.open(src) as t:
                 for m in t.getmembers():
                     _safe_target(stage, m.name)
-                t.extractall(stage, filter="data")  # also blocks device files, absolute links
+                try:
+                    t.extractall(stage, filter="data")  # also blocks device files, absolute links
+                except TypeError:  # Python < 3.10.12/3.11.4: no filters; paths were checked above
+                    t.extractall(stage)
         elif ext in (".gz", ".bz2", ".xz"):  # a single compressed file, not a tarball
             import bz2
             import gzip

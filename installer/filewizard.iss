@@ -18,6 +18,10 @@ DisableDirPage=yes
 ; All users: Windows' shell reliably loads machine-registered menu handlers (measured in CI),
 ; so the installer asks for admin once, like most desktop apps.
 PrivilegesRequired=admin
+; FileWizard and its shell extension are 64-bit: install to "Program Files" (not "x86") and use
+; the 64-bit registry view
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist
 OutputBaseFilename=FileWizard-Setup
 SetupIconFile=filewizard.ico

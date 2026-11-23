@@ -27,6 +27,9 @@ ChangesEnvironment=yes
 
 [Files]
 Source: "..\dist\FileWizard\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+; Explorer keeps the shell extension loaded (locked), so each version gets its own file name
+; and old ones are removed at the next restart.
+Source: "..\native\fwshell.dll"; DestDir: "{app}"; DestName: "fwshell-{#AppVersion}.dll"; Flags: ignoreversion uninsrestartdelete
 
 [Icons]
 Name: "{group}\FileWizard settings"; Filename: "{app}\filewizardw.exe"; Parameters: "settings"

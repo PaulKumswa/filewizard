@@ -179,7 +179,7 @@ PACKAGE_PARENT = {pkg_parent!r}
 if PACKAGE_PARENT not in sys.path:
     sys.path.insert(0, PACKAGE_PARENT)
 from filewizard.cli import main
-sys.exit(main(["run", "--shell"] + sys.argv[1:]))
+sys.exit(main(sys.argv[1:]))
 '''
 
 
@@ -228,12 +228,14 @@ def frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
 
 
-def command_prefix(launcher: Path | None) -> str:
+def command_prefix(launcher: Path | None, mode: str = "--shell") -> str:
+    """How Explorer starts FileWizard. mode: --shell (classic verbs, one process per file,
+    collector merges them) or --native (the DLL passes the whole selection at once)."""
     if frozen():
         exe = Path(sys.executable)
         windowed = exe.with_name("filewizardw.exe")
-        return f'"{windowed if windowed.exists() else exe}" run --shell'
-    return f'"{pythonw()}" "{launcher}"'
+        return f'"{windowed if windowed.exists() else exe}" run {mode}'
+    return f'"{pythonw()}" "{launcher}" run {mode}'
 
 
 # ---------- registry I/O (Windows only) ----------
@@ -268,6 +270,111 @@ def _refresh_explorer() -> None:
     ctypes.windll.shell32.SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None)
 
 
+# ---------- native shell extension (full menu, selection-aware) ----------
+
+CLSID = "{6E2B7D59-3D4A-4C61-9F0E-FA11E3A1D0C8}"  # must match native/fwshell.cpp
+HANDLER_PARENTS = (r"Software\Classes\*\shellex\ContextMenuHandlers",
+                   r"Software\Classes\Directory\shellex\ContextMenuHandlers")
+
+
+def manifest_lines(command: str, icon: str | None) -> list[str]:
+    """Menu description for the native handler (format documented in native/fwshell.cpp).
+
+    File types with identical menus share one block, which keeps the file small."""
+    def block(ext: str) -> list[str]:
+        ops = for_ext(ext) if ext != ANY_FILE else [op for op in OPERATIONS if ANY_FILE in op.exts]
+        lines: list[str] = []
+        open_path: tuple[str, ...] = ()
+        prev_group = None
+        for op in ops:
+            # top-level section change -> separator (only when we're back at the top level)
+            common = 0
+            while common < min(len(open_path), len(op.menu)) and open_path[common] == op.menu[common]:
+                common += 1
+            for _ in range(len(open_path) - common):
+                lines.append("end")
+            if common == 0 and prev_group is not None and op.group != prev_group:
+                lines.append("sep")
+            for d in range(common, len(op.menu)):
+                lines.append(f"menu\t{op.menu[d]}")
+            open_path = op.menu
+            if common == 0 or not op.menu:
+                prev_group = op.group
+            flags = "m" if op.multi else ""
+            lines.append(f"item\t{op.id}\t{op.label_for(ext)}\t{flags}")
+        lines += ["end"] * len(open_path)
+        return lines
+
+    groups: dict[tuple[str, ...], list[str]] = {}
+    for ext in [*ALL_EXTS, DIR, ANY_FILE]:
+        body = tuple(block(ext))
+        if body:
+            groups.setdefault(body, []).append(ext)
+    out = [f"command\t{command}"]
+    if icon:
+        out.append(f"icon\t{icon}")
+    for body, exts in groups.items():
+        out.append("type\t" + "\t".join(exts))
+        out.extend(body)
+        out.append("endtype")
+    return out
+
+
+def write_manifest(command: str, icon: str | None) -> Path:
+    p = app_dir() / "menu.tsv"
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text("\n".join(manifest_lines(command, icon)) + "\n", encoding="utf-8")
+    tmp.replace(p)  # atomic: Explorer never reads half a file
+    return p
+
+
+def find_native_dll() -> Path | None:
+    """The shell extension DLL: next to the frozen exe, $FILEWIZARD_NATIVE_DLL, or in the package."""
+    import os
+
+    env = os.environ.get("FILEWIZARD_NATIVE_DLL")
+    candidates = [Path(env)] if env else []
+    here = Path(sys.executable).parent if frozen() else Path(__file__).parent / "native"
+    candidates += sorted(here.glob("fwshell*.dll"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return next((c for c in candidates if c.exists()), None)
+
+
+def _install_native(winreg, dll: Path, command: str, icon: str | None) -> None:
+    hk = winreg.HKEY_CURRENT_USER
+    write_manifest(command, icon)
+    with winreg.CreateKeyEx(hk, rf"Software\Classes\CLSID\{CLSID}", 0, winreg.KEY_WRITE) as k:
+        winreg.SetValueEx(k, "", 0, winreg.REG_SZ, f"{APP_NAME} context menu")
+    with winreg.CreateKeyEx(hk, rf"Software\Classes\CLSID\{CLSID}\InprocServer32", 0, winreg.KEY_WRITE) as k:
+        winreg.SetValueEx(k, "", 0, winreg.REG_SZ, str(dll))
+        winreg.SetValueEx(k, "ThreadingModel", 0, winreg.REG_SZ, "Apartment")
+    for parent in HANDLER_PARENTS:
+        with winreg.CreateKeyEx(hk, rf"{parent}\{APP_NAME}", 0, winreg.KEY_WRITE) as k:
+            winreg.SetValueEx(k, "", 0, winreg.REG_SZ, CLSID)
+    # Only consulted when the "approved extensions only" policy is on; harmless otherwise.
+    with winreg.CreateKeyEx(hk, r"Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved", 0,
+                            winreg.KEY_WRITE) as k:
+        winreg.SetValueEx(k, CLSID, 0, winreg.REG_SZ, f"{APP_NAME} context menu")
+
+
+def _uninstall_native(winreg) -> bool:
+    hk = winreg.HKEY_CURRENT_USER
+    found = False
+    for path in [rf"{p}\{APP_NAME}" for p in HANDLER_PARENTS] + [rf"Software\Classes\CLSID\{CLSID}"]:
+        try:
+            winreg.OpenKey(hk, path).Close()
+            found = True
+        except FileNotFoundError:
+            continue
+        _delete_tree(winreg, hk, path)
+    try:
+        with winreg.OpenKey(hk, r"Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved", 0,
+                            winreg.KEY_ALL_ACCESS) as k:
+            winreg.DeleteValue(k, CLSID)
+    except OSError:
+        pass
+    return found
+
+
 def uninstall(quiet: bool = False) -> int:
     winreg = _winreg()
     hk = winreg.HKEY_CURRENT_USER
@@ -293,9 +400,15 @@ def uninstall(quiet: bool = False) -> int:
             continue
         _delete_tree(winreg, hk, path)
         removed += 1
+    if _uninstall_native(winreg):
+        removed += 1
+    try:
+        (app_dir() / "menu.tsv").unlink()
+    except OSError:
+        pass
     _refresh_explorer()
     if not quiet:
-        print(f"Removed the {APP_NAME} menu from {removed} file types.")
+        print(f"Removed the {APP_NAME} menu.")
     return removed
 
 
@@ -304,7 +417,8 @@ def _is_store_python() -> bool:
     return "windowsapps" in exe or "pythonsoftwarefoundation" in exe
 
 
-def install() -> None:
+def install(mode: str = "auto") -> str:
+    """mode: auto (native DLL if available), native, or classic. Returns the mode used."""
     winreg = _winreg()
     if _is_store_python() and not frozen():
         # Store apps get a private, virtualized copy of HKCU and AppData: our writes would
@@ -317,18 +431,28 @@ def install() -> None:
     uninstall(quiet=True)  # start clean so renamed/removed actions don't linger
     launcher = None if frozen() else write_launcher()
     icon = write_icon()
-    entries = build_entries(command_prefix(launcher), icon)
-    hk = winreg.HKEY_CURRENT_USER
-    types = {REG_SZ: winreg.REG_SZ, REG_DWORD: winreg.REG_DWORD}
-    for key, vals in entries:
-        with winreg.CreateKeyEx(hk, key, 0, winreg.KEY_WRITE) as k:
-            for name, (typ, val) in vals.items():
-                winreg.SetValueEx(k, name, 0, types[typ], val)
-    _refresh_explorer()
-    print(f"Installed the {APP_NAME} menu for {len(ALL_EXTS)} file types.")
-    print(f"Command: {command_prefix(launcher)}")
-    print("Right-click a PDF, image or Office file. On Windows 11, it's under 'Show more options'"
-          " (or hold Shift while right-clicking).")
+    dll = find_native_dll() if mode in ("auto", "native") else None
+    if mode == "native" and not dll:
+        raise SystemExit("Native menu DLL (fwshell.dll) not found. Use the installer build, or set FILEWIZARD_NATIVE_DLL.")
+    if dll:
+        _install_native(winreg, dll, command_prefix(launcher, "--native"), icon)
+        _refresh_explorer()
+        print(f"Installed the full {APP_NAME} menu (native handler: {dll.name}).")
+        used = "native"
+    else:
+        entries = build_entries(command_prefix(launcher), icon)
+        hk = winreg.HKEY_CURRENT_USER
+        types = {REG_SZ: winreg.REG_SZ, REG_DWORD: winreg.REG_DWORD}
+        for key, vals in entries:
+            with winreg.CreateKeyEx(hk, key, 0, winreg.KEY_WRITE) as k:
+                for name, (typ, val) in vals.items():
+                    winreg.SetValueEx(k, name, 0, types[typ], val)
+        _refresh_explorer()
+        print(f"Installed the {APP_NAME} menu for {len(ALL_EXTS)} file types (classic mode: "
+              "Windows limits these menus to 16 entries; 'All actions…' has the rest).")
+        used = "classic"
+    print("Right-click a file → FileWizard. On Windows 11 it's under 'Show more options' (or Shift+right-click).")
+    return used
 
 
 def render_menu(ext: str) -> str:

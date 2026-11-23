@@ -34,13 +34,29 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: python -m pip install ".[dev]"
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build native shell extension (MSVC)
+        shell: cmd
+        run: cl /nologo /O2 /EHsc /std:c++17 /W3 /DUNICODE /D_UNICODE /LD native\fwshell.cpp /Fe:native\fwshell.dll /link /DEF:native\fwshell.def shlwapi.lib ole32.lib shell32.lib user32.lib gdi32.lib uuid.lib
       - name: Cascade-limit experiment (informational)
         run: python tests/windows/menu_limit_experiment.py
         continue-on-error: true
-      - name: Shell integration tests
+      - name: Shell tests - classic registry menu
         run: python -m pytest -v -s tests/windows
         env:
           FILEWIZARD_SHELL_TEST: "1"
+          FILEWIZARD_MENU_MODE: classic
+      - name: Shell tests - native menu (DLL)
+        run: python -m pytest -v -s tests/windows
+        env:
+          FILEWIZARD_SHELL_TEST: "1"
+          FILEWIZARD_MENU_MODE: native
+          FILEWIZARD_NATIVE_DLL: ${{ github.workspace }}\native\fwshell.dll
+      - name: Upload DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: fwshell-dll
+          path: native/fwshell.dll
       - name: Upload FileWizard log
         if: always()
         uses: actions/upload-artifact@v4
@@ -60,6 +76,10 @@ jobs:
           python-version: "3.12"
       - name: Install build tools
         run: python -m pip install ".[dev]" pyinstaller
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build native shell extension (MSVC)
+        shell: cmd
+        run: cl /nologo /O2 /EHsc /std:c++17 /W3 /DUNICODE /D_UNICODE /LD native\fwshell.cpp /Fe:native\fwshell.dll /link /DEF:native\fwshell.def shlwapi.lib ole32.lib shell32.lib user32.lib gdi32.lib uuid.lib
       - name: Freeze with PyInstaller
         working-directory: installer
         run: pyinstaller filewizard.spec --noconfirm --distpath ../dist --workpath ../build
@@ -94,6 +114,7 @@ jobs:
         env:
           FILEWIZARD_SHELL_TEST: "1"
           FILEWIZARD_ALREADY_INSTALLED: "1"
+          FILEWIZARD_MENU_MODE: native
       - name: Uninstall cleans up
         shell: pwsh
         run: |

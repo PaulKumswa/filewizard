@@ -41,7 +41,20 @@ def cmd_run(args) -> int:
         return 2
 
     paths = list(args.files)
-    if args.shell:
+    if args.list:  # the native menu hands over big selections as a UTF-8 list file
+        lst = Path(args.list)
+        try:
+            paths += [ln for ln in lst.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        finally:
+            try:
+                lst.unlink()
+            except OSError:
+                pass
+    if not paths:
+        print("No files given.", file=sys.stderr)
+        return 2
+    args.shell = args.shell or args.native  # same UI behaviour (dialogs, toast)
+    if args.shell and not args.native:
         from .collector import collect
 
         # One Explorer click = one process per selected file; only the leader continues.
@@ -205,10 +218,12 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     r = sub.add_parser("run", help="run an action on files")
-    r.add_argument("--shell", action="store_true", help=argparse.SUPPRESS)  # launched from Explorer
+    r.add_argument("--shell", action="store_true", help=argparse.SUPPRESS)  # launched by a classic verb
+    r.add_argument("--native", action="store_true", help=argparse.SUPPRESS)  # launched by the native menu
+    r.add_argument("--list", help=argparse.SUPPRESS)
     r.add_argument("-p", "--param", action="append", default=[], metavar="KEY=VALUE")
     r.add_argument("op")
-    r.add_argument("files", nargs="+")
+    r.add_argument("files", nargs="*")
     r.set_defaults(fn=cmd_run)
 
     sub.add_parser("list", help="list actions").set_defaults(fn=cmd_list)
@@ -221,9 +236,9 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("out", nargs="?")
     e.set_defaults(fn=cmd_export_reg)
 
-    def _install(_):
+    def _install(a):
         from .shell_menu import install
-        install()
+        install("classic" if a.classic else "auto")
         return 0
 
     def _uninstall(_):
@@ -231,7 +246,9 @@ def main(argv: list[str] | None = None) -> int:
         uninstall()
         return 0
 
-    sub.add_parser("install", help="add the right-click menu (Windows)").set_defaults(fn=_install)
+    ins = sub.add_parser("install", help="add the right-click menu (Windows)")
+    ins.add_argument("--classic", action="store_true", help="registry-only menu (no shell extension DLL)")
+    ins.set_defaults(fn=_install)
     sub.add_parser("uninstall", help="remove the right-click menu (Windows)").set_defaults(fn=_uninstall)
 
     args = ap.parse_args(argv)

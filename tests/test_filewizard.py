@@ -355,7 +355,7 @@ def test_launcher_runs(tmp_path, monkeypatch):
     (tmp_path / "pymupdf.py").write_text("raise SystemExit('hijacked')")
     env = {**os.environ, "FILEWIZARD_NONINTERACTIVE": "1", "TMPDIR": str(tmp_path / "q")}
     (tmp_path / "q").mkdir()
-    r = subprocess.run([sys.executable, str(launcher), "pdf-reverse", str(src)],
+    r = subprocess.run([sys.executable, str(launcher), "run", "--shell", "pdf-reverse", str(src)],
                        cwd=tmp_path, env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
     assert (tmp_path / "x (reversed).pdf").exists()
@@ -409,3 +409,66 @@ def test_classic_menus_fit_windows_16_entry_limit():
 
 def test_png_menu_still_has_webp_for_mixed_selection_test():
     assert "WebP" in shell_menu.render_menu(".png") and "WebP" in shell_menu.render_menu(".jpg")
+
+
+def _parse_manifest(lines):
+    """Python mirror of the C++ parser in native/fwshell.cpp."""
+    types, top, stack, names = {}, [], [], []
+    for ln in lines:
+        f = ln.split("\t")
+        target = stack[-1]["children"] if stack else top
+        if f[0] == "type":
+            names, top, stack = f[1:], [], []
+        elif f[0] == "menu":
+            node = {"menu": f[1], "children": []}
+            target.append(node)
+            stack.append(node)
+        elif f[0] == "end":
+            assert stack, "unbalanced end"
+            stack.pop()
+        elif f[0] == "sep":
+            target.append("sep")
+        elif f[0] == "item":
+            target.append({"id": f[1], "label": f[2], "multi": "m" in f[3]})
+        elif f[0] == "endtype":
+            assert not stack, "menu left open at endtype"
+            for n in names:
+                types[n] = top
+    return types
+
+
+def _ids(nodes):
+    for n in nodes:
+        if isinstance(n, dict) and "id" in n:
+            yield n
+        elif isinstance(n, dict):
+            yield from _ids(n["children"])
+
+
+def test_native_manifest():
+    lines = shell_menu.manifest_lines('"fw.exe" run --native', "i.ico")
+    assert lines[0] == 'command\t"fw.exe" run --native'
+    types = _parse_manifest(lines)
+    pdf = list(_ids(types[".pdf"]))
+    merge = next(n for n in pdf if n["id"] == "combine-pdf")
+    assert merge["multi"] and merge["label"].startswith("Merge")
+    assert any(n["id"] == "pdf-flatten" for n in pdf), "native menu must have everything (no 16 cap)"
+    assert "*" in types and "<folder>" in types
+    # Convert to ▸ is a submenu on PDFs
+    assert any(isinstance(n, dict) and n.get("menu") == "Convert to" for n in types[".pdf"])
+    # identical menus share blocks: far fewer blocks than extensions
+    assert sum(1 for ln in lines if ln.startswith("type\t")) < len(types) / 2
+    assert len("\n".join(lines).encode()) < 200_000
+
+
+def test_run_accepts_list_file(tmp_path):
+    a = tmp_path / "a.pdf"
+    b = tmp_path / "b.pdf"
+    for p in (a, b):
+        d = pymupdf.open()
+        d.new_page()
+        d.save(p)
+    lst = tmp_path / "sel.txt"
+    lst.write_text(f"{a}\n{b}\n", encoding="utf-8")
+    assert main(["run", "--native", "combine-pdf", "--list", str(lst)]) == 0
+    assert (tmp_path / "a (merged).pdf").exists() and not lst.exists()

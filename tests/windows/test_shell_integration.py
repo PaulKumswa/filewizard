@@ -16,6 +16,9 @@ pytestmark = pytest.mark.skipif(
     reason="Windows shell integration test (set FILEWIZARD_SHELL_TEST=1)",
 )
 
+MODE = os.environ.get("FILEWIZARD_MENU_MODE", "classic")
+native_only = pytest.mark.skipif(MODE != "native", reason="native menu only")
+
 if sys.platform == "win32":
     sys.path.insert(0, str(Path(__file__).parent))
     import shell_probe
@@ -30,7 +33,7 @@ def installed():
         return
     from filewizard import shell_menu
 
-    shell_menu.install()
+    assert shell_menu.install(MODE) == MODE
     yield
     shell_menu.uninstall()
 
@@ -122,3 +125,43 @@ def test_folder_menu(tmp_path):
     lines = shell_probe.dump([str(d)])
     print("\n".join(lines))
     assert any("ZIP" in line for line in lines)
+
+
+# ---------- native handler: full menu, selection-aware ----------
+
+@native_only
+def test_native_full_menu_beyond_16(tmp_path):
+    lines = shell_probe.dump([_pdf(tmp_path / "a.pdf")])
+    print("\n".join(lines))
+    assert len([ln for ln in lines if ln.strip() != "---"]) > 16
+    text = "\n".join(lines)
+    assert "Flatten forms" in text and "Add watermark" in text
+    assert "Merge" not in text, "merge needs 2+ files, hide it for a single PDF"
+
+
+@native_only
+def test_native_merge_appears_for_multiple(tmp_path):
+    files = [_pdf(tmp_path / f"p{i}.pdf") for i in range(2)]
+    assert any("Merge selected PDFs" in ln for ln in shell_probe.dump(files))
+
+
+@native_only
+def test_native_mixed_selection_shows_shared_actions_only(tmp_path):
+    files = [_pdf(tmp_path / "doc.pdf"), _img(tmp_path / "pic.jpg")]
+    lines = shell_probe.dump(files)
+    print("\n".join(lines))
+    text = "\n".join(lines)
+    assert "Combine selected into one PDF" in text or "Merge selected PDFs" in text
+    assert "Split into single pages" not in text and "HEIC" not in text
+
+
+@native_only
+def test_native_click_mixed_combine(tmp_path):
+    files = [_pdf(tmp_path / "doc.pdf", 2), _img(tmp_path / "pic.jpg")]
+    lines = shell_probe.dump(files)
+    label = next(ln.strip() for ln in lines if "selected" in ln and "PDF" in ln)
+    shell_probe.click(label, files)
+    [out] = _wait_for(tmp_path, "*combined*.pdf")
+    import pymupdf
+
+    assert pymupdf.open(out).page_count == 3

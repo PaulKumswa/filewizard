@@ -66,6 +66,22 @@ static std::wstring AppDir() {
     return dir;
 }
 
+// Opt-in diagnostics: create %LOCALAPPDATA%\FileWizard\shell-debug to get shell.log.
+static void Log(const std::wstring& msg) {
+    std::wstring dir = AppDir();
+    if (dir.empty() || GetFileAttributesW((dir + L"\\shell-debug").c_str()) == INVALID_FILE_ATTRIBUTES) return;
+    HANDLE f = CreateFileW((dir + L"\\shell.log").c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return;
+    std::wstring line = msg + L"\r\n";
+    int n = WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.size(), nullptr, 0, nullptr, nullptr);
+    std::string u(n > 0 ? n : 0, '\0');
+    if (n > 0) WideCharToMultiByte(CP_UTF8, 0, line.c_str(), (int)line.size(), &u[0], n, nullptr, nullptr);
+    DWORD w = 0;
+    WriteFile(f, u.data(), (DWORD)u.size(), &w, nullptr);
+    CloseHandle(f);
+}
+
 static std::vector<std::wstring> SplitTabs(const std::wstring& line) {
     std::vector<std::wstring> out;
     size_t start = 0;
@@ -266,6 +282,7 @@ public:
         FORMATETC fe = {CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
         STGMEDIUM stm{};
         if (FAILED(data->GetData(&fe, &stm))) return E_INVALIDARG;
+        Log(L"Initialize: got CF_HDROP");
         HDROP drop = (HDROP)GlobalLock(stm.hGlobal);
         if (drop) {
             UINT n = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
@@ -279,6 +296,7 @@ public:
             GlobalUnlock(stm.hGlobal);
         }
         ReleaseStgMedium(&stm);
+        Log(L"Initialize: files=" + std::to_wstring(m_files.size()));
         return m_files.empty() ? E_INVALIDARG : S_OK;
     }
 
@@ -286,8 +304,13 @@ public:
     IFACEMETHODIMP QueryContextMenu(HMENU menu, UINT index, UINT first, UINT last, UINT flags) override {
         try {
             if (flags & CMF_DEFAULTONLY) return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+            Log(L"QueryContextMenu: flags=" + std::to_wstring(flags) + L" files=" + std::to_wstring(m_files.size()));
             Manifest m;
-            if (!LoadManifest(m)) return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+            if (!LoadManifest(m)) {
+                Log(L"QueryContextMenu: manifest missing/invalid at " + AppDir() + L"\\menu.tsv");
+                return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
+            }
+            Log(L"QueryContextMenu: manifest types=" + std::to_wstring(m.types.size()));
             m_command = m.command;
 
             // which menu: the first file's type; others narrow it to shared actions
@@ -298,7 +321,8 @@ public:
                 if (it == m.types.end() && k != L"<folder>") it = m.types.find(L"*");
                 return it == m.types.end() ? nullptr : &it->second;
             };
-            const std::vector<Node>* base = pick(keys[0]);
+            const std::vector<Node>* base = pick(keys.empty() ? std::wstring() : keys[0]);
+            Log(L"QueryContextMenu: first key=" + (keys.empty() ? std::wstring() : keys[0]) + (base ? L" found" : L" NOT found"));
             if (!base) return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
             std::vector<std::unordered_set<std::wstring>> others;
             std::unordered_set<std::wstring> seen{keys[0]};
@@ -327,7 +351,9 @@ public:
                 mii.fMask |= MIIM_BITMAP;
                 mii.hbmpItem = m_bitmap;
             }
+            Log(L"QueryContextMenu: inserting, ids=" + std::to_wstring(m_ids.size()));
             if (!InsertMenuItemW(menu, index, TRUE, &mii)) {
+                Log(L"QueryContextMenu: InsertMenuItemW failed " + std::to_wstring(GetLastError()));
                 DestroyMenu(sub);
                 return MAKE_HRESULT(SEVERITY_SUCCESS, 0, 0);
             }
@@ -476,6 +502,7 @@ public:
 static Factory g_factory;
 
 STDAPI DllGetClassObject(REFCLSID clsid, REFIID riid, void** ppv) {
+    Log(L"DllGetClassObject");
     if (clsid != CLSID_FileWizardMenu) return CLASS_E_CLASSNOTAVAILABLE;
     return g_factory.QueryInterface(riid, ppv);
 }

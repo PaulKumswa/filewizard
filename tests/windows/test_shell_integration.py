@@ -33,8 +33,18 @@ def installed():
         return
     from filewizard import shell_menu
 
+    if MODE == "native":  # turn on the DLL's diagnostics log for CI
+        from filewizard.util import app_dir
+
+        (app_dir() / "shell-debug").write_text("1")
     assert shell_menu.install(MODE) == MODE
     yield
+    if MODE == "native":
+        from filewizard.util import app_dir
+
+        log = app_dir() / "shell.log"
+        print("\n--- fwshell.dll log ---\n" + (log.read_text(encoding="utf-8", errors="replace")[-4000:]
+                                               if log.exists() else "(no log: DLL never loaded)"))
     shell_menu.uninstall()
 
 
@@ -165,3 +175,31 @@ def test_native_click_mixed_combine(tmp_path):
     import pymupdf
 
     assert pymupdf.open(out).page_count == 3
+
+
+@native_only
+def test_native_com_object_creates():
+    """Create the handler directly through COM: pinpoints registration/loading problems."""
+    import ctypes
+    import winreg
+
+    from filewizard.shell_menu import CLSID
+
+    with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, rf"CLSID\{CLSID}\InprocServer32") as k:
+        dll = winreg.QueryValue(k, "")
+    print("HKCR InprocServer32 ->", dll, "exists:", os.path.exists(dll))
+    with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"*\shellex\ContextMenuHandlers\FileWizard") as k:
+        print("HKCR * handler ->", winreg.QueryValue(k, ""))
+    try:
+        h = ctypes.WinDLL(dll)
+        print("LoadLibrary OK; DllGetClassObject:", bool(h.DllGetClassObject))
+    except OSError as e:
+        raise AssertionError(f"LoadLibrary failed: {e}")
+    ole32 = ctypes.windll.ole32
+    ole32.CoInitialize(None)
+    clsid = shell_probe.GUID.of(CLSID.strip("{}"))
+    ptr = ctypes.c_void_p()
+    hr = ole32.CoCreateInstance(ctypes.byref(clsid), None, 1, ctypes.byref(shell_probe.IID_IContextMenu),
+                                ctypes.byref(ptr))
+    print(f"CoCreateInstance hr=0x{hr & 0xFFFFFFFF:08X}")
+    assert hr == 0

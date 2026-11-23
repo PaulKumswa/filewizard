@@ -296,7 +296,6 @@ def test_folder_background_menu_and_paste_text(tmp_path):
     else:
         # A background menu probed outside a real Explorer window doesn't fill static cascades
         # (no view site). Check the registered verb and run its command line as Explorer would.
-        import shlex
         import subprocess
         import winreg
 
@@ -308,7 +307,7 @@ def test_folder_background_menu_and_paste_text(tmp_path):
             cmd = winreg.QueryValue(k, "")
         print(cmd)
         assert '"%V"' in cmd
-        subprocess.Popen(shlex.split(cmd.replace("%V", str(tmp_path)), posix=False))
+        subprocess.Popen(cmd.replace("%V", str(tmp_path)))  # one command-line string, like Explorer
     [out] = _wait_for(tmp_path, "Pasted text*.txt")
     assert out.read_text(encoding="utf-8") == "hello from the clipboard"
 

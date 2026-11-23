@@ -440,6 +440,10 @@ def install(mode: str = "auto") -> str:
             "menu entries it creates. Install Python from https://www.python.org/downloads/ instead\n"
             "(tick 'Add python.exe to PATH'), then run install.bat again."
         )
+    if mode == "auto":
+        from .settings import load
+
+        mode = "classic" if load().get("menu") == "classic" else "auto"
     uninstall(quiet=True)  # start clean so renamed/removed actions don't linger
     launcher = None if frozen() else write_launcher()
     icon = write_icon()

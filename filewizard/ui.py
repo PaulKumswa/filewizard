@@ -567,6 +567,18 @@ def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None
         except BaseException as e:  # SystemExit from install on Store Python etc.
             status.configure(text=str(e)[:200], foreground="#b00020")
 
+    menu_style = tk.StringVar(value=cfg.get("menu", "auto"))
+    ttk.Label(frm, text="Menu style:").pack(anchor="w", pady=(10, 0))
+
+    def set_style():
+        save({"menu": menu_style.get()})
+        do(reinstall, "Menu re-installed ✓")
+
+    ttk.Radiobutton(frm, text="Full menu: every action, adapts to your selection (recommended)", value="auto",
+                    variable=menu_style, command=set_style).pack(anchor="w", padx=12)
+    ttk.Radiobutton(frm, text="Classic: simpler, top actions + “All actions…” (use if the full menu doesn't show)",
+                    value="classic", variable=menu_style, command=set_style).pack(anchor="w", padx=12)
+
     row = ttk.Frame(frm)
     row.pack(fill="x", pady=(14, 4))
     ttk.Button(row, text="Repair right-click menu", command=lambda: do(reinstall, "Menu re-installed ✓")).pack(side="left")

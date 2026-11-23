@@ -754,5 +754,5 @@ def test_pdf_compare(tmp_path):
     b = make(tmp_path / "v2.pdf", ["The rent is $950.", "Pets allowed."])
     assert run("pdf-compare", a, b) == 0
     html = (tmp_path / "v1 (comparison).html").read_text(encoding="utf-8")
-    assert "950" in html and "900" in html and "1 changed passage" in html
+    assert "rent" in html and "diff_chg" in html and "1 changed passage" in html  # $9[0→5]0 highlighted
     assert run("pdf-compare", a, a) == 1  # identical: friendly message

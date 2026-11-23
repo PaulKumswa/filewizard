@@ -965,8 +965,10 @@ def customize_menu(ops: list, hidden: set[str]) -> set[str] | None:
             groups[g] = tree.insert("", "end", text=g, open=False)
         shown = op.id not in hidden
         state[op.id] = shown
-        exts = sorted(e for e in op.exts if e.startswith("."))[:4]
-        hint = ("   (" + ", ".join(exts) + ("…" if len(op.exts) > 4 else "") + ")") if exts else ""
+        from .operations import family
+
+        fam = family(op)
+        hint = f"   — {fam}" if fam else ""
         tree.insert(groups[g], "end", iid=op.id, text=mark[shown] + op.label + hint)
 
     def toggle(event):

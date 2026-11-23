@@ -567,6 +567,21 @@ _ids = [op.id for op in OPERATIONS]
 assert len(_ids) == len(set(_ids)), "duplicate operation id"
 
 
+def family(op: Operation) -> str:
+    """Plain-language file family an action is for (used in Settings > Customize menu)."""
+    names = [("PDFs", PDF_EXTS), ("images", IMAGE_EXTS), ("videos", VIDEO_EXTS), ("audio", AUDIO_EXTS),
+             ("Office documents", OFFICE_EXTS), ("ebooks", EBOOK_EXTS), ("data files", DATA_EXTS),
+             ("archives", ARCHIVE_EXTS), ("Markdown/HTML", MARKDOWN_EXTS | HTML_EXTS)]
+    hits = [name for name, exts in names if op.exts & exts]
+    if ANY_FILE in op.exts:
+        return "any file"
+    if BACKGROUND in op.exts:
+        return "folder background"
+    if DIR in op.exts and not hits:
+        return "folders"
+    return " & ".join(hits[:2]) + (" & more" if len(hits) > 2 else "")
+
+
 def for_ext(ext: str) -> list[Operation]:
     return [op for op in OPERATIONS if op.applies_to(ext)]
 

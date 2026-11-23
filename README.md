@@ -78,12 +78,15 @@ FileWizard is under **"Show more options"**, or press **Shift + right-click** to
 
 | | **Full menu** (installer) | **Classic** (`pip` install) |
 |---|---|---|
-| How | Small native shell extension (`fwshell.dll`) | Plain registry entries |
+| How | Small native shell extension (`fwshell.dll`), registered for all users | Plain registry entries (per user, no admin) |
 | Size | Every action | Windows caps these menus at **16 entries**, so the most-used ones are shown, plus **All actions…** |
 | Multi-select aware | ✅ "Merge" only appears with 2+ files; mixed selections show shared actions | Shows every action; asks to add files if needed |
 | One process per click | ✅ | Explorer starts one process per file; FileWizard gathers them into one job |
+| Icons next to items | ✅ (from Windows' own icon font) | – |
 
 The 16-entry limit isn't a guess: CI measured it on real Windows (see `docs/BUILD_LOG.md`).
+If the full menu ever doesn't show on a PC (unusual security policies), switch to Classic in
+*FileWizard settings → Menu style*.
 
 ## Command line
 

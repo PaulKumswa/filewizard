@@ -288,10 +288,27 @@ def test_folder_background_menu_and_paste_text(tmp_path):
     assert sub, "FileWizard missing from the folder-background menu:\n" + "\n".join(cm.tree())
     labels = [t for t, _, _ in cm.items(sub)]
     print(labels, "cm3:", bool(cm.cm3), "cm2:", bool(getattr(cm, "cm2", None)))
-    assert any("Paste clipboard text" in t for t in labels)
     _set_clipboard_text("hello from the clipboard")
-    wid, _ = cm.find(["FileWizard", "Paste clipboard text as .txt"])
-    cm.invoke(wid)
+    if MODE == "native":
+        assert any("Paste clipboard text" in t for t in labels)
+        wid, _ = cm.find(["FileWizard", "Paste clipboard text as .txt"])
+        cm.invoke(wid)
+    else:
+        # A background menu probed outside a real Explorer window doesn't fill static cascades
+        # (no view site). Check the registered verb and run its command line as Explorer would.
+        import shlex
+        import subprocess
+        import winreg
+
+        base = r"Software\Classes\Directory\Background\shell\FileWizard\shell"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, base) as k:
+            names = [winreg.EnumKey(k, i) for i in range(winreg.QueryInfoKey(k)[0])]
+        verb = next(n for n in names if n.endswith("paste-text"))
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, rf"{base}\{verb}\command") as k:
+            cmd = winreg.QueryValue(k, "")
+        print(cmd)
+        assert '"%V"' in cmd
+        subprocess.Popen(shlex.split(cmd.replace("%V", str(tmp_path)), posix=False))
     [out] = _wait_for(tmp_path, "Pasted text*.txt")
     assert out.read_text(encoding="utf-8") == "hello from the clipboard"
 

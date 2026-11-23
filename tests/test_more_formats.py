@@ -921,3 +921,25 @@ def test_paper_size_setting(tmp_path, monkeypatch):
             assert round(d[0].rect.width) == 595  # A4
     finally:
         settings.save({"paper": "letter"})
+
+
+def test_table_finder_falls_back_when_layout_step_fails(tmp_path, monkeypatch):
+    """Frozen-build regression: find_tables() returned None (failing optional layout step)."""
+    calls = []
+    real = pymupdf.Page.find_tables
+
+    def flaky(self, **kw):
+        calls.append(kw)
+        return None if kw.get("use_layout", True) else real(self, **kw)
+
+    monkeypatch.setattr(pymupdf.Page, "find_tables", flaky)
+    src = _pdf(tmp_path / "plain.pdf", 1)
+    assert run("pdf-to-xlsx", src) == 1  # no tables: a polite message, not a crash
+    assert {"use_layout": False} in calls
+
+
+def test_explorer_like_order():
+    from filewizard.util import natural_key
+
+    names = ["w2.pdf", "w.pdf", "page10.pdf", "page2.pdf"]
+    assert sorted(names, key=natural_key) == ["page2.pdf", "page10.pdf", "w.pdf", "w2.pdf"]

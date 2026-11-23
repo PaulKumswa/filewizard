@@ -648,9 +648,8 @@ def to_xlsx(src: Path) -> list[Path]:
     found = 0
     for pno, page in enumerate(doc, 1):
         report(pno / doc.page_count, f"Looking for tables on page {pno}")
-        try:
-            tables = page.find_tables()
-        except Exception:
+        tables = _find_tables(page)
+        if tables is None:
             continue
         for tno, table in enumerate(tables.tables, 1):
             rows = _table_rows(page, table)
@@ -671,6 +670,22 @@ def to_xlsx(src: Path) -> list[Path]:
     out = sibling(src, None, ".xlsx")
     wb.save(out)
     return [out]
+
+
+def _find_tables(page):
+    """PyMuPDF's line-based table finder. Newer PyMuPDF first runs an optional AI layout step
+    (an add-on the installer leaves out) and returns None if anything inside fails, so ask
+    for the plain finder, and fall back gracefully on older versions."""
+    for kwargs in ({"use_layout": False}, {}):
+        try:
+            found = page.find_tables(**kwargs)
+        except TypeError:  # older PyMuPDF: no use_layout option
+            continue
+        except Exception:
+            return None
+        if found is not None:
+            return found
+    return None
 
 
 def _table_rows(page, table) -> list[list[str]]:

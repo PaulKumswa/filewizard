@@ -119,9 +119,14 @@ def sibling(src: Path, suffix_label: str | None, ext: str) -> Path:
 
 
 def natural_key(p: Path | str):
-    """Sort 'page2' before 'page10'."""
-    s = Path(p).name.lower()
-    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
+    """Explorer-like order: 'page2' before 'page10', and 'w.pdf' before 'w2.pdf' (names are
+    compared before extensions)."""
+    path = Path(p)
+
+    def parts(s: str):
+        return [(0, int(t), "") if t.isdigit() else (1, 0, t) for t in re.split(r"(\d+)", s.lower()) if t]
+
+    return (parts(path.stem), path.suffix.lower())
 
 
 def parse_page_ranges(spec: str, page_count: int) -> list[int]:

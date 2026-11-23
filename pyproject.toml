@@ -7,7 +7,7 @@ name = "filewizard"
 version = "0.3.0"
 description = "Right-click file conversions and PDF tools for Windows Explorer"
 readme = "README.md"
-license = "PolyForm-Noncommercial-1.0.0"
+license = "MIT"
 requires-python = ">=3.10"
 dependencies = [
     "pymupdf>=1.24",

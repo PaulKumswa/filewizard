@@ -180,11 +180,9 @@ loaded, Windows deletes that one file at your next restart.
 
 ## License
 
-FileWizard is **free for personal and other noncommercial use** (including by schools, charities and
-public bodies) under the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial use isn't permitted
-without separate permission from the author.
+FileWizard's own code is [MIT-licensed](LICENSE).
 
-Note: the installer bundles components under their own licences (see [THIRD_PARTY.md](THIRD_PARTY.md)),
-including PyMuPDF (AGPL) and an ffmpeg build (GPL). Those licences don't allow a "noncommercial" restriction
-on programs distributed with them, so if you plan to **distribute** FileWizard beyond personal use, sort
-that out first (e.g. PyMuPDF's commercial licence and an LGPL ffmpeg build). Using it yourself is fine.
+The installer also bundles components under their own licences (see [THIRD_PARTY.md](THIRD_PARTY.md)),
+notably PyMuPDF and pdf2docx (AGPL) and an ffmpeg build (GPL). MIT is compatible with those, so sharing
+the installer is fine as long as their licence terms travel with it and the source stays available,
+which this public repo and `THIRD_PARTY.md` take care of.

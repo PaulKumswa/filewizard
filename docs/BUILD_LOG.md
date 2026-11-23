@@ -52,13 +52,24 @@ Running notes below: what was tried, what happened, what's next.
 - **RAR creation.** Proprietary format; extraction works (via 7-Zip or Windows' built-in `tar`).
 - **Background removal by default.** The AI model is ~170 MB; it's offered but installs only if you `pip install rembg`.
 
-## Backlog (rough priority)
+## Built tonight (beyond v1)
 
-- [x] CI green on Windows, including multi-select merge through the real shell
-- [x] Standalone installer (no Python needed) built by CI
-- [x] README rewrite for the new features
-- [x] Image "compress under N KB/MB" (upload forms), Show details
-- [ ] Settings window (notifications on/off, output folder)
-- [ ] Image → favicon set / app icon pack
-- [ ] PDF: sign with image, crop margins, n-up
-- [ ] Video: add subtitles, extract subtitles
+- Nested menu (Convert to ▸ …) everywhere; native full menu with icons, recent actions on top,
+  selection-aware items; classic fallback that respects Windows' 16-entry cap + "All actions…" palette
+- Video & audio (bundled ffmpeg): convert, compress (incl. fit-under-N-MB), resize, trim, rotate, speed,
+  mute, normalize, join, soundtrack, subtitles, frames, ringtone, "MP4 that plays everywhere"
+- Images: HEIC/AVIF/SVG/RAW/PSD…, compress-to-size, resize presets, flips, crop borders, pad square,
+  watermark, icon pack, stitch, GIF, slideshow, contact sheet, OCR, metadata/GPS removal
+- PDF: combine anything, PDF → Excel tables, sign, page picker (extract/delete/rotate some), compress-to-size,
+  watermark, numbers, 2/4-up, trim margins, remove blank pages, flatten, grayscale, OCR, copy text
+- Office: → PDF/PNG/text, compress pictures inside; ebooks, Markdown, HTML, CSV → PDF; CSV ⇄ Excel ⇄ JSON
+- Archives (zip-slip safe), ZIP/7z, batch rename (`{taken}` photo date), checksums, Show details (GPS warning)
+- UX: progress + Cancel, Done toast (Open / Show in folder / Undo → Recycle Bin), settings window,
+  parallel image batches, output-folder setting
+- Installer (all users, 64-bit), CI on real Windows incl. real-shell clicks and a non-elevated user check
+
+## Next ideas (not started)
+
+- Windows 11 short (top-level) menu: needs an IExplorerCommand handler in a signed sparse package
+- Dark-mode dialogs (Tk can't follow the Windows theme; would need a different UI toolkit)
+- Microsoft Office COM path: written defensively but untested (no Office on CI runners)

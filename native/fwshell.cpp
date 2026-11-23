@@ -38,6 +38,7 @@ struct Node {
     std::wstring id;      // op id (items)
     std::wstring label;
     std::wstring mixedLabel;  // label when the selection mixes file types (optional)
+    std::wstring icon;        // .ico path for the menu image (optional)
     bool multi = false;   // needs 2+ files
     std::vector<Node> children;
 };
@@ -100,7 +101,9 @@ static std::vector<std::wstring> SplitTabs(const std::wstring& line) {
 //   icon    <TAB> C:\...\filewizard.ico
 //   type    <TAB> .pdf [<TAB> .pdfx ...]   (block shared by several extensions)
 //   menu    <TAB> Convert to
-//   item    <TAB> op-id <TAB> Label <TAB> flags [<TAB> label for mixed selections]   (flags: m = needs 2+ files)
+//   menu    <TAB> Label [<TAB> icon.ico]
+//   item    <TAB> op-id <TAB> Label <TAB> flags [<TAB> label for mixed selections [<TAB> icon.ico]]
+//           (flags: m = needs 2+ files)
 //   sep
 //   end                                            (closes menu)
 //   endtype
@@ -157,6 +160,7 @@ static bool LoadManifest(Manifest& m) {
             Node n;
             n.kind = Node::Menu;
             n.label = f2[1];
+            if (f2.size() >= 3) n.icon = f2[2];
             target.push_back(n);
             stack.push_back(&target.back());
         } else if (k == L"end") {
@@ -172,6 +176,7 @@ static bool LoadManifest(Manifest& m) {
             n.label = f2[2];
             n.multi = f2.size() >= 4 && f2[3].find(L'm') != std::wstring::npos;
             if (f2.size() >= 5) n.mixedLabel = f2[4];
+            if (f2.size() >= 6) n.icon = f2[5];
             target.push_back(n);
         } else if (k == L"endtype") {
             for (auto& t : typeNames) m.types[t] = top;
@@ -285,6 +290,7 @@ public:
     FileWizardMenu() { InterlockedIncrement(&g_refs); }
     virtual ~FileWizardMenu() {
         if (m_bitmap) DeleteObject(m_bitmap);
+        for (HBITMAP b : m_itemBitmaps) DeleteObject(b);
         InterlockedDecrement(&g_refs);
     }
 
@@ -422,12 +428,16 @@ private:
                 AppendMenuW(h, MF_SEPARATOR, 0, nullptr);
             } else if (n.kind == Node::Menu) {
                 HMENU child = Build(n.children, first, last);
-                if (child) AppendMenuW(h, MF_POPUP | MF_STRING, (UINT_PTR)child, MenuText(n.label).c_str());
+                if (child) {
+                    AppendMenuW(h, MF_POPUP | MF_STRING, (UINT_PTR)child, MenuText(n.label).c_str());
+                    SetImage(h, n.icon);
+                }
             } else {
                 UINT id = first + (UINT)m_ids.size();
                 if (id >= last) break;  // out of id space: stop adding
                 m_ids.push_back(n.id);
                 AppendMenuW(h, MF_STRING, id, MenuText(n.label).c_str());
+                SetImage(h, n.icon);
             }
         }
         return h;
@@ -497,6 +507,26 @@ private:
     std::vector<std::wstring> m_ids;  // menu id offset -> op id
     std::wstring m_command;
     HBITMAP m_bitmap = nullptr;
+    std::vector<HBITMAP> m_itemBitmaps;  // menu images; must live as long as the menu
+    std::unordered_map<std::wstring, HBITMAP> m_iconCache;
+
+    void SetImage(HMENU h, const std::wstring& icon) {
+        if (icon.empty()) return;
+        HBITMAP bmp = nullptr;
+        auto it = m_iconCache.find(icon);
+        if (it != m_iconCache.end()) {
+            bmp = it->second;
+        } else {
+            bmp = IconToBitmap(icon);
+            m_iconCache[icon] = bmp;
+            if (bmp) m_itemBitmaps.push_back(bmp);
+        }
+        if (!bmp) return;
+        MENUITEMINFOW mii{sizeof(mii)};
+        mii.fMask = MIIM_BITMAP;
+        mii.hbmpItem = bmp;
+        SetMenuItemInfoW(h, GetMenuItemCount(h) - 1, TRUE, &mii);  // the item just appended
+    }
 };
 
 // ---------------------------------------------------------------- class factory & exports

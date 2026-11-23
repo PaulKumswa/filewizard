@@ -216,3 +216,17 @@ def test_native_ampersand_and_mixed_label(tmp_path):
     assert "Black & white" in labels, labels
     lines = shell_probe.dump([_pdf(tmp_path / "doc.pdf"), _img(tmp_path / "pic.jpg")])
     assert any("Combine selected into one PDF" in ln for ln in lines), lines
+
+
+@native_only
+def test_native_menu_icons_rendered():
+    from filewizard.shell_menu import find_native_dll
+
+    folder = find_native_dll().parent if os.environ.get("FILEWIZARD_REGISTER_MACHINE") == "1" else None
+    from filewizard.util import app_dir
+
+    icons = list(((folder or app_dir()) / "icons").glob("*.ico"))
+    print(len(icons), "menu icons")
+    assert len(icons) >= 10
+    manifest = ((folder or app_dir()) / "menu.tsv").read_text(encoding="utf-8")
+    assert "\tConvert to\t" in manifest and ".ico" in manifest

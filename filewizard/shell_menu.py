@@ -277,10 +277,64 @@ HANDLER_PARENTS = (r"Software\Classes\*\shellex\ContextMenuHandlers",
                    r"Software\Classes\Directory\shellex\ContextMenuHandlers")
 
 
-def manifest_lines(command: str, icon: str | None) -> list[str]:
+# Menu images: glyphs from Windows' own icon font (what Explorer uses), keyed by
+# submenu name or action id. Codepoints exist in both Segoe MDL2 Assets and Segoe Fluent Icons.
+GLYPHS = {
+    "Convert to": "\ue8ab", "Compress": "\ue73f", "Resize": "\ue740", "Pages": "\ue7c3", "Rotate": "\ue7ad",
+    "Speed": "\ue916", "Edit": "\ue70f", "Password": "\ue72e", "Extract": "\ue896", "More": "\ue712",
+    "Stitch into one image": "\ue91b",
+    "combine-pdf": "\ue8a5", "media-join": "\ue8a5", "img-contact-sheet": "\ue91b",
+    "pdf-compress": "\ue73f", "img-compress": "\ue73f", "aud-compress": "\ue73f", "office-compress": "\ue73f",
+    "media-trim": "\ue7a8", "pdf-ocr": "\ue721", "img-ocr": "\ue8c8", "copy-text": "\ue8c8",
+    "img-strip": "\ue7ba", "media-normalize": "\ue767", "vid-mute": "\ue74f", "vid-subs": "\ue7f0",
+    "media-ringtone": "\ue8d6", "arc-extract": "\ue8b7", "arc-extract-folder": "\ue8b7", "palette": "\ue721",
+}
+ICON_COLOR = (47, 111, 222, 255)  # mid-tone blue: readable in light and dark menus
+
+
+def _glyph_font():
+    import os
+
+    fonts = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+    for name in ("SegoeIcons.ttf", "segmdl2.ttf"):
+        if (fonts / name).exists():
+            return fonts / name
+    return None
+
+
+def write_menu_icons(folder: Path) -> dict[str, str]:
+    """Render GLYPHS to small .ico files. Returns {key: path}; empty when the font is missing."""
+    font_path = _glyph_font()
+    if not font_path:
+        return {}
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return {}
+    folder.mkdir(parents=True, exist_ok=True)
+    font = ImageFont.truetype(str(font_path), 52)
+    out: dict[str, str] = {}
+    cache: dict[str, str] = {}
+    for key, ch in GLYPHS.items():
+        if ch not in cache:
+            img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+            d = ImageDraw.Draw(img)
+            box = d.textbbox((0, 0), ch, font=font)
+            d.text(((64 - (box[2] - box[0])) / 2 - box[0], (64 - (box[3] - box[1])) / 2 - box[1]), ch,
+                   font=font, fill=ICON_COLOR)
+            p = folder / f"g{ord(ch):04x}.ico"
+            img.save(p, "ICO", sizes=[(16, 16), (20, 20), (24, 24), (32, 32)])
+            cache[ch] = str(p)
+        out[key] = cache[ch]
+    return out
+
+
+def manifest_lines(command: str, icon: str | None, icons: dict[str, str] | None = None) -> list[str]:
     """Menu description for the native handler (format documented in native/fwshell.cpp).
 
     File types with identical menus share one block, which keeps the file small."""
+    icons = icons or {}
+
     def block(ext: str) -> list[str]:
         ops = for_ext(ext) if ext != ANY_FILE else [op for op in OPERATIONS if ANY_FILE in op.exts]
         lines: list[str] = []
@@ -296,14 +350,19 @@ def manifest_lines(command: str, icon: str | None) -> list[str]:
             if common == 0 and prev_group is not None and op.group != prev_group:
                 lines.append("sep")
             for d in range(common, len(op.menu)):
-                lines.append(f"menu\t{op.menu[d]}")
+                ico = icons.get(op.menu[d]) if d == 0 else None
+                lines.append(f"menu\t{op.menu[d]}" + (f"\t{ico}" if ico else ""))
             open_path = op.menu
             if common == 0 or not op.menu:
                 prev_group = op.group
             flags = "m" if op.multi else ""
             line = f"item\t{op.id}\t{op.label_for(ext)}\t{flags}"
-            if op.label_for(ext) != op.label:  # e.g. "Merge selected PDFs…" -> generic when types are mixed
-                line += f"\t{op.label}"
+            mixed = op.label if op.label_for(ext) != op.label else ""  # "Merge…" -> generic when mixed
+            ico = icons.get(op.id) if not op.menu else None
+            if mixed or ico:
+                line += f"\t{mixed}"
+            if ico:
+                line += f"\t{ico}"
             lines.append(line)
         lines += ["end"] * len(open_path)
         return lines
@@ -324,10 +383,18 @@ def manifest_lines(command: str, icon: str | None) -> list[str]:
 
 
 def write_manifest(command: str, icon: str | None, folder: Path | None = None) -> Path:
-    """Per-user: %LOCALAPPDATA%\\FileWizard. All-users: next to the DLL (the DLL looks there first)."""
-    p = (folder or app_dir()) / "menu.tsv"
+    """Per-user: %LOCALAPPDATA%\\FileWizard. All-users: next to the DLL (the DLL looks there first).
+    Icons go beside the manifest so every user account can read them."""
+    folder = folder or app_dir()
+    p = folder / "menu.tsv"
+    icons = write_menu_icons(folder / "icons")
+    if icon and folder != app_dir():
+        import shutil
+
+        shutil.copyfile(icon, folder / "filewizard.ico")
+        icon = str(folder / "filewizard.ico")
     tmp = p.with_suffix(".tmp")
-    tmp.write_text("\n".join(manifest_lines(command, icon)) + "\n", encoding="utf-8")
+    tmp.write_text("\n".join(manifest_lines(command, icon, icons)) + "\n", encoding="utf-8")
     tmp.replace(p)  # atomic: Explorer never reads half a file
     return p
 

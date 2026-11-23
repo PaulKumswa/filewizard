@@ -236,8 +236,8 @@ def _build() -> list[Operation]:
         "convert", menu=CONVERT,
         per_file=lambda p, _: (docs.ebook_to_pdf(p) if p.suffix.lower() in EBOOK_EXTS
                                else docs.markup_to_pdf(p) if p.suffix.lower() in MARKDOWN_EXTS | HTML_EXTS
-                               else docs.text_to_pdf(p)),
-        exclude_exts={".csv"})
+                               else docs.table_to_pdf(p) if p.suffix.lower() in (".csv", ".tsv")
+                               else docs.text_to_pdf(p)))
     add("img-to-pdf", "PDF", IMG_IN, "convert", menu=CONVERT,
         per_file=lambda p, _: pdf.images_to_pdf([p]))
     add("pdf-to-docx", "Word (.docx)", PDF_EXTS, "convert", menu=CONVERT,

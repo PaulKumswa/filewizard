@@ -244,3 +244,20 @@ def to_json(src: Path) -> list[Path]:
     out = sibling(src, None, ".json")
     out.write_text(json.dumps(records, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     return [out]
+
+
+def table_to_pdf(src: Path) -> list[Path]:
+    """CSV/TSV as a readable, printable table (header row bold, zebra stripes)."""
+    rows = _rows_from(src)[0][1]
+    if not rows:
+        raise UserError(f"{src.name} is empty.")
+    if len(rows) > 20000:
+        raise UserError(f"{src.name} has {len(rows):,} rows: too many for a PDF. Convert it to Excel instead.")
+    esc = html_lib.escape
+    head = "".join(f"<th>{esc(str(c))}</th>" for c in rows[0])
+    body = "".join(
+        f"<tr{' class=z' if i % 2 else ''}>" + "".join(f"<td>{esc(str(c))}</td>" for c in r) + "</tr>"
+        for i, r in enumerate(rows[1:]))
+    css = "<style>table{font-size:8pt} th{background:#dde3f0} tr.z td{background:#f4f6fa}</style>"
+    html = f"<html><head>{css}</head><body><h3>{esc(src.name)}</h3><table><tr>{head}</tr>{body}</table></body></html>"
+    return [html_to_pdf_file(html, sibling(src, None, ".pdf"), src.parent)]

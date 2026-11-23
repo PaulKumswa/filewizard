@@ -578,3 +578,11 @@ def test_ringtone(song):
     assert run("media-ringtone", song) == 0
     out = song.parent / "song (ringtone).m4r"
     assert out.exists() and media.probe(out).acodec == "aac"
+
+
+def test_csv_to_pdf_table(tmp_path):
+    src = tmp_path / "grades.csv"
+    src.write_text("name,score\n" + "".join(f"Student {i},{i}\n" for i in range(300)), encoding="utf-8")
+    assert run("doc-to-pdf", src) == 0
+    with pymupdf.open(tmp_path / "grades.pdf") as d:
+        assert d.page_count > 1 and "Student 299" in "".join(p.get_text() for p in d)

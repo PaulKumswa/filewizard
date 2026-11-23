@@ -555,3 +555,10 @@ def test_rename_by_photo_date(tmp_path):
     assert run("rename", *sorted(tmp_path.iterdir()), "-p", "pattern={taken} {n}") == 0
     names = sorted(p.name for p in tmp_path.iterdir())
     assert names[0] == "2024-07-04 01.jpg" and len(names) == 2
+
+
+def test_rotate_some_pages(tmp_path):
+    src = _pdf(tmp_path / "scan.pdf", 4)
+    assert run("pdf-rotate-some", src, "-p", "pages=2,4") == 0
+    with pymupdf.open(tmp_path / "scan (rotated).pdf") as d:
+        assert [p.rotation for p in d] == [0, 90, 0, 90]

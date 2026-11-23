@@ -362,6 +362,8 @@ def _build() -> list[Operation]:
     RO = ("Rotate",)
     add("pdf-rotate-right", "Right (clockwise)", PDF_EXTS, "edit", menu=RO, per_file=lambda p, _: pdf.rotate(p, 90))
     add("pdf-rotate-left", "Left", PDF_EXTS, "edit", menu=RO, per_file=lambda p, _: pdf.rotate(p, 270))
+    add("pdf-rotate-some", "Some pages (clockwise)…", PDF_EXTS, "edit", menu=RO,
+        per_file=lambda p, prm: pdf.rotate_pages(p, prm["pages"]), ask=_ask_pages("rotate"), param_names=("pages",))
     add("pdf-rotate-180", "Upside down (180°)", PDF_EXTS, "edit", menu=RO, per_file=lambda p, _: pdf.rotate(p, 180))
     for how, name in (("right", "Right (clockwise)"), ("left", "Left"), ("180", "Upside down (180°)"),
                       ("hflip", "Mirror (flip horizontally)"), ("vflip", "Flip vertically")):
@@ -471,7 +473,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MULTI = {"combine-pdf", "media-join", "img-contact-sheet"}

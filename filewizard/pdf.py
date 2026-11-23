@@ -196,6 +196,15 @@ def rotate(src: Path, degrees_clockwise: int) -> list[Path]:
     return [_save(doc, sibling(src, label, ".pdf"))]
 
 
+def rotate_pages(src: Path, pages: str, degrees_clockwise: int = 90) -> list[Path]:
+    """Rotate only some pages (e.g. the sideways ones in a scan)."""
+    doc = _open(src)
+    for i in parse_page_ranges(pages, doc.page_count):
+        page = doc[i]
+        page.set_rotation((page.rotation + degrees_clockwise) % 360)
+    return [_save(doc, sibling(src, "rotated", ".pdf"))]
+
+
 def add_page_numbers(src: Path) -> list[Path]:
     pymupdf = _pymupdf()
     doc = _open(src)

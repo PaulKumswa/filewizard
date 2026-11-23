@@ -2,20 +2,24 @@
 
 ## Start here (morning summary)
 
-**Try it:** GitHub → Actions → latest green *CI* run → Artifacts → **FileWizard-Setup** → run it
-(one UAC prompt) → right-click anything → **FileWizard ▸** (Windows 11: *Show more options* / Shift+right-click).
+**Try it:** GitHub → Actions → latest green *CI* run → Artifacts → **FileWizard-Setup** → unzip → run
+(SmartScreen: *More info → Run anyway*; one admin prompt) → right-click anything → **FileWizard ▸**.
+Windows 11: *Show more options* / Shift+right-click, or tick the installer option that brings back the full menu.
 
-What's verified on real Windows by CI (not just on Linux):
-- The full right-click menu, built by a native shell extension: every action, with icons, "Merge" only
-  when several files are selected, and mixed selections narrowed to shared actions. Driven through the
-  same COM interfaces Explorer uses, including clicks that produce the right output files.
-- The classic (registry) menu as a fallback: 16-entry Windows limit measured and respected, with "All actions…".
-- The installer: silent install → smoke test of the installed app (PDF, HEIC, video, audio) → uninstall cleanup.
-- Word/Excel → PDF through LibreOffice on Windows.
+**Verified on real Windows by CI** (GitHub's Windows Server runners), not just on Linux:
+- The full right-click menu (native shell extension): every action, icons, "Merge" only with 2+ files,
+  mixed selections narrowed to shared actions, recent actions on top, hidden-actions setting,
+  folder-background menu (paste clipboard as file). Driven through the same COM interfaces Explorer
+  uses, including clicks that produce the right files.
+- The installed app **as a normal (non-admin) user**: menu appears, clicking "Merge selected PDFs" works.
+- The installer: silent install, smoke test (PDF, HEIC, video, audio, **OCR without installing Tesseract**),
+  uninstall leaves nothing behind. **Startup 0.25 s; JPG→PNG end to end 0.32 s.**
+- Classic registry menu fallback (Windows' 16-entry cap measured and respected) incl. multi-select merge.
+- Word/Excel → PDF through LibreOffice on Windows. Every dialog opens/closes cleanly in light and dark mode.
 
-What is NOT verified (needs your PC): Microsoft Office conversion (no Office on CI runners), exactly
-how the dialogs look with your Windows theme (they're tested to open/close cleanly in light and dark,
-and screenshotted on Linux), and the Windows 11 full-menu option's visual effect (the setting itself is tested).
+**Not verified (needs your PC):** Microsoft Office itself (no Office on CI; the code is defensive: separate
+instance, fail-fast on prompts, 3-minute watchdog), how dialogs look under your Windows theme, and the
+visual effect of the Windows 11 full-menu option (the setting itself is tested).
 
 Running notes below: what was tried, what happened, what's next.
 

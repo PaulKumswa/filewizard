@@ -242,6 +242,8 @@ def _build() -> list[Operation]:
         per_file=lambda p, _: pdf.images_to_pdf([p]))
     add("pdf-to-docx", "Word (.docx)", PDF_EXTS, "convert", menu=CONVERT,
         per_file=lambda p, _: pdf.to_docx(p))
+    add("office-to-png", "PNG images", WORD_EXTS | SLIDE_EXTS | {".odp"}, "convert", menu=CONVERT,
+        per_file=lambda p, _: office.to_images(p, ".png"), exclude_exts={".txt"})
     add("word-to-docx", "Word (.docx)", {".doc", ".rtf", ".odt", ".docm", ".wps"}, "convert", menu=CONVERT,
         per_file=lambda p, _: office.convert(p, ".docx"))
     add("ppt-to-pptx", "PowerPoint (.pptx)", {".ppt", ".odp", ".pptm"}, "convert", menu=CONVERT,

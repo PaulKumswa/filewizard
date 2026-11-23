@@ -68,3 +68,16 @@ def test_combine_word_and_pdf(tmp_path):
 
 def test_backend_report():
     assert "LibreOffice" in office.backend_report()
+
+
+def test_slides_to_png(tmp_path):
+    pptx = pytest.importorskip("pptx")
+    prs = pptx.Presentation()
+    for title in ("One", "Two"):
+        s = prs.slides.add_slide(prs.slide_layouts[0])
+        s.shapes.title.text = title
+    src = tmp_path / "Deck.pptx"
+    prs.save(src)
+    assert run("office-to-png", src) == 0
+    assert len(list((tmp_path / "Deck (png)").glob("*.png"))) == 2
+    assert not list(tmp_path.glob("*.pdf"))  # no stray temp PDF

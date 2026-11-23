@@ -166,3 +166,32 @@ def backend_report() -> str:
     parts.append("Microsoft Office (COM): " + ("available" if _com_available() else "not available"))
     parts.append("LibreOffice: " + (find_soffice() or "not found"))
     return "\n".join(parts)
+
+
+def to_images(src: Path, ext: str = ".png") -> list[Path]:
+    """Slides/pages as images (e.g. a PowerPoint deck -> one PNG per slide)."""
+    import shutil
+    import tempfile
+
+    from . import pdf
+
+    with tempfile.TemporaryDirectory(prefix="filewizard-") as td:
+        tmp_src = Path(td) / src.name
+        shutil.copyfile(src, tmp_src)  # keeps the temporary PDF out of the user's folder
+        tmp_pdf = Path(td) / (src.stem + ".pdf")
+        convert(tmp_src, ".pdf", tmp_pdf)
+        images = pdf.to_images(tmp_pdf, ext)
+        # move results next to the original
+        from .util import sibling, unique_dir
+
+        if len(images) == 1:
+            out = sibling(src, None, ext)
+            shutil.move(str(images[0]), out)
+            return [out]
+        folder = unique_dir(src.with_name(f"{src.stem} ({ext[1:]})"))
+        outs = []
+        for i, img in enumerate(images, 1):
+            dest = folder / f"{src.stem} - {'slide' if src.suffix.lower() in SLIDE_EXTS else 'page'} {i:02d}{ext}"
+            shutil.move(str(img), dest)
+            outs.append(dest)
+        return outs

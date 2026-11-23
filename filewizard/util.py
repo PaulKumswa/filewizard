@@ -1,0 +1,205 @@
+"""Small helpers shared by every operation."""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+import sys
+from pathlib import Path
+
+APP_NAME = "FileWizard"
+
+
+def app_dir() -> Path:
+    """Per-user folder for logs, settings, the icon and batch queues.
+    FILEWIZARD_HOME overrides it (used by tests to keep each test's settings private)."""
+    override = os.environ.get("FILEWIZARD_HOME")
+    if override:
+        d = Path(override)
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        base = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
+    d = base / APP_NAME
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def setup_logging() -> logging.Logger:
+    log = logging.getLogger("filewizard")
+    if not log.handlers:
+        try:
+            h = logging.FileHandler(app_dir() / "filewizard.log", encoding="utf-8")
+        except OSError:
+            h = logging.StreamHandler()
+        h.setFormatter(logging.Formatter("%(asctime)s [%(process)d] %(levelname)s %(message)s"))
+        log.addHandler(h)
+        log.setLevel(logging.INFO)
+    return log
+
+
+class UserError(Exception):
+    """An error whose message is fit to show the user as-is."""
+
+
+def unique_path(path: Path) -> Path:
+    """Return `path`, or `name (2).ext`, `name (3).ext`... so nothing is overwritten."""
+    path = Path(path)
+    if not path.exists():
+        return path
+    i = 2
+    while True:
+        candidate = path.with_name(f"{path.stem} ({i}){path.suffix}")
+        if not candidate.exists():
+            return candidate
+        i += 1
+
+
+_WRITABLE: dict[str, bool] = {}
+_WRITABLE_LOCK = __import__("threading").Lock()
+
+
+def _writable(folder: Path) -> bool:
+    """Really try (os.access lies on Windows for many read-only locations). Each check uses its own
+    probe name (parallel batches!), and the answer is remembered per folder for this run."""
+    import uuid
+
+    key = str(folder)
+    with _WRITABLE_LOCK:
+        if key in _WRITABLE:
+            return _WRITABLE[key]
+        probe = folder / f".fw-write-test-{uuid.uuid4().hex}"
+        try:
+            probe.write_bytes(b"")
+            probe.unlink()
+            ok = True
+        except OSError:
+            ok = False
+        _WRITABLE[key] = ok
+        return ok
+
+
+def fallback_dir() -> Path:
+    """Where results go when the original's folder is read-only: Downloads\\FileWizard."""
+    d = Path.home() / "Downloads" / "FileWizard"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def output_dir(src: Path) -> Path:
+    """Where results go: next to the original (default) or a 'FileWizard' subfolder (setting);
+    Downloads\\FileWizard if that folder can't be written (network share, ISO, Program Files…)."""
+    folder = src.parent
+    try:
+        from .settings import load
+
+        if load().get("output") == "subfolder" and folder.name != "FileWizard":
+            folder = folder / "FileWizard"
+            folder.mkdir(exist_ok=True)
+    except OSError:
+        folder = src.parent
+    if not _writable(folder):
+        folder = fallback_dir()
+    return folder
+
+
+def unique_dir(path: Path) -> Path:
+    d = unique_path(output_dir(path) / path.name)
+    d.mkdir(parents=True)
+    return d
+
+
+def sibling(src: Path, suffix_label: str | None, ext: str) -> Path:
+    """Output path for a result made from `src`: `report (merged).pdf`, or `photo.png` with no label."""
+    stem = src.stem if not suffix_label else f"{src.stem} ({suffix_label})"
+    return unique_path(output_dir(src) / (stem + ext))
+
+
+def natural_key(p: Path | str):
+    """Explorer-like order: 'page2' before 'page10', and 'w.pdf' before 'w2.pdf' (names are
+    compared before extensions)."""
+    path = Path(p)
+
+    def parts(s: str):
+        return [(0, int(t), "") if t.isdigit() else (1, 0, t) for t in re.split(r"(\d+)", s.lower()) if t]
+
+    return (parts(path.stem), path.suffix.lower())
+
+
+def parse_page_ranges(spec: str, page_count: int) -> list[int]:
+    """Parse '1-3, 5, 8-' (1-based, inclusive) into 0-based page indexes, in order given.
+
+    '-3' means 1-3, '8-' means 8 to the end, 'end'/'last' means the last page.
+    """
+    if not spec or not spec.strip():
+        raise UserError("No pages given.")
+    pages: list[int] = []
+    for raw in re.split(r"[,;\s]+", spec.strip()):
+        if not raw:
+            continue
+        part = raw.lower().replace("last", str(page_count)).replace("end", str(page_count))
+        m = re.fullmatch(r"(\d*)\s*-\s*(\d*)", part)
+        if m:
+            a = int(m.group(1)) if m.group(1) else 1
+            b = int(m.group(2)) if m.group(2) else page_count
+        elif part.isdigit():
+            a = b = int(part)
+        else:
+            raise UserError(f"Couldn't understand page range '{raw}'. Use something like 1-3,5,8-")
+        if a < 1 or b > page_count or a > b:
+            raise UserError(f"Range '{raw}' is outside this document (it has {page_count} pages).")
+        pages.extend(range(a - 1, b))
+    return pages
+
+
+def human_size(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n} B"
+
+
+# ---------- progress reporting ----------
+# Long operations call report(fraction, text). The UI installs a sink that drives a
+# progress bar; by default reports go nowhere. A fraction of None means "indeterminate".
+
+class Cancelled(Exception):
+    """Raised inside an operation when the user pressed Cancel."""
+
+
+class _Progress:
+    def __init__(self):
+        self.fraction: float | None = None
+        self.text = ""
+        self.cancelled = False
+        self.base = 0.0   # for batches: file i of n maps to [i/n, (i+1)/n)
+        self.span = 1.0
+
+    def report(self, fraction: float | None = None, text: str | None = None):
+        if self.cancelled:
+            raise Cancelled()
+        if fraction is not None:
+            self.fraction = self.base + self.span * max(0.0, min(1.0, fraction))
+        if text is not None:
+            self.text = text
+
+
+PROGRESS = _Progress()
+
+
+def report(fraction: float | None = None, text: str | None = None) -> None:
+    PROGRESS.report(fraction, text)
+
+
+def paper() -> str:
+    """'letter' or 'a4' (Settings > Paper size), the PyMuPDF paper name for new pages."""
+    try:
+        from .settings import load
+
+        return "a4" if load().get("paper") == "a4" else "letter"
+    except Exception:
+        return "letter"

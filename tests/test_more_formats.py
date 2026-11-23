@@ -586,3 +586,13 @@ def test_csv_to_pdf_table(tmp_path):
     assert run("doc-to-pdf", src) == 0
     with pymupdf.open(tmp_path / "grades.pdf") as d:
         assert d.page_count > 1 and "Student 299" in "".join(p.get_text() for p in d)
+
+
+def test_video_compatible(tmp_path):
+    hevc = tmp_path / "iphone.mov"
+    subprocess.run([media.ffmpeg(), "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                    "testsrc=duration=1:size=320x240:rate=25", "-c:v", "libx265", "-tag:v", "hvc1", str(hevc)],
+                   check=True)
+    assert media.probe(hevc).vcodec == "hevc"
+    assert run("vid-compatible", hevc) == 0
+    assert media.probe(tmp_path / "iphone (compatible).mp4").vcodec == "h264"

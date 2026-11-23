@@ -532,3 +532,18 @@ def ringtone(src: Path, seconds: float = 30.0) -> list[Path]:
     run(["-i", str(src), "-t", f"{length:.2f}", "-vn", "-af", fade, "-c:a", "aac", "-b:a", "192k",
          "-f", "ipod", str(tmp)], length, f"Making ringtone from {src.name}")
     return [_finish(out, tmp)]
+
+
+def compatible(src: Path) -> list[Path]:
+    """H.264/AAC MP4 at ≤1080p, 8-bit 4:2:0: plays on every device, browser and app
+    (fixes iPhone HEVC/HDR videos that won't play on older PCs or upload sites)."""
+    info = probe(src)
+    if not info.vcodec:
+        raise UserError(f"{src.name} has no video track.")
+    out = _out(src, "compatible", ".mp4")
+    tmp = _tmp_for(out)
+    vf = "scale='if(gt(ih,iw),min(1080,iw),-2)':'if(gt(ih,iw),-2,min(1080,ih))',format=yuv420p"
+    run(["-i", str(src), "-map", "0:v:0", "-map", "0:a:0?", "-vf", vf, "-c:v", "libx264", "-profile:v", "high",
+         "-level", "4.1", "-preset", "medium", "-crf", "21", "-c:a", "aac", "-b:a", "160k", "-ac", "2",
+         "-movflags", "+faststart", str(tmp)], info.duration, f"Making {src.name} play everywhere")
+    return [_finish(out, tmp)]

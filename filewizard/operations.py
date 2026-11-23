@@ -282,6 +282,9 @@ def _build() -> list[Operation]:
                       (".avi", "AVI"), (".wmv", "WMV")):
         add(f"vid-to-{ext[1:]}", name, VIDEO_EXTS, "convert", menu=CONVERT,
             per_file=lambda p, _, e=ext: media.convert_video(p, e), exclude_exts={ext})
+    add("vid-compatible", "MP4 that plays everywhere", VIDEO_EXTS, "convert", menu=CONVERT,
+        per_file=lambda p, _: media.compatible(p),
+        help="Fixes iPhone HEVC/HDR videos that won't play on some PCs, browsers or apps")
     add("vid-to-gif", "Animated GIF", VIDEO_EXTS, "convert", menu=CONVERT,
         per_file=lambda p, _: media.to_gif(p))
 

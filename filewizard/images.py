@@ -544,3 +544,66 @@ def stitch(files: list[Path], vertical: bool = True, gap: int = 0) -> list[Path]
     ext = ".jpg" if photo else ".png"
     out = sibling(files[0], "stitched", ext)
     return [save_as(canvas, out, ext)]
+
+
+def _uniform_frames(files: list[Path], max_side: int):
+    """Open images and fit them all onto one canvas size (letterboxed), for GIFs/slideshows."""
+    from PIL import Image
+
+    imgs = [_flatten(open_image(f)) for f in files]
+    w = max(i.width for i in imgs)
+    h = max(i.height for i in imgs)
+    scale = min(1.0, max_side / max(w, h))
+    W, H = max(2, int(w * scale) // 2 * 2), max(2, int(h * scale) // 2 * 2)
+    frames = []
+    for im in imgs:
+        im = im.copy()
+        im.thumbnail((W, H), Image.LANCZOS)
+        canvas = Image.new("RGB", (W, H), (0, 0, 0))
+        canvas.paste(im, ((W - im.width) // 2, (H - im.height) // 2))
+        frames.append(canvas)
+    return frames
+
+
+def make_gif(files: list[Path], seconds_per_frame: float = 0.8) -> list[Path]:
+    if len(files) < 2:
+        raise UserError("Select at least two images to make an animation.")
+    frames = _uniform_frames(files, 800)
+    out = sibling(files[0], "animation", ".gif")
+    frames[0].save(out, "GIF", save_all=True, append_images=frames[1:], duration=int(seconds_per_frame * 1000),
+                   loop=0, optimize=True)
+    return [out]
+
+
+def make_slideshow(files: list[Path], seconds_per_image: float = 3.0) -> list[Path]:
+    """Photos -> 1080p MP4 slideshow with a short crossfade between pictures."""
+    import tempfile
+
+    from . import media
+
+    if len(files) < 2:
+        raise UserError("Select at least two images to make a slideshow.")
+    frames = _uniform_frames(files, 1920)
+    with tempfile.TemporaryDirectory(prefix="fw-slides-") as td:
+        paths = []
+        for i, fr in enumerate(frames):
+            p = Path(td) / f"{i:04d}.jpg"
+            fr.save(p, "JPEG", quality=92)
+            paths.append(p)
+        fade = 0.6
+        args, parts = [], []
+        for p in paths:
+            args += ["-loop", "1", "-t", f"{seconds_per_image + fade:.2f}", "-i", str(p)]
+        for i in range(len(paths)):
+            parts.append(f"[{i}:v]setsar=1,format=yuv420p,fps=30[v{i}]")
+        chain, last, offset = [], "v0", 0.0
+        for i in range(1, len(paths)):
+            offset += seconds_per_image
+            chain.append(f"[{last}][v{i}]xfade=transition=fade:duration={fade}:offset={offset - fade * (i - 1):.2f}[x{i}]")
+            last = f"x{i}"
+        graph = ";".join(parts + chain)
+        out = sibling(files[0], "slideshow", ".mp4")
+        total = seconds_per_image * len(paths)
+        media.run([*args, "-filter_complex", graph, "-map", f"[{last}]", "-c:v", "libx264", "-crf", "20",
+                   "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)], total, "Making slideshow")
+    return [out]

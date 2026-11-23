@@ -312,6 +312,10 @@ def _build() -> list[Operation]:
         batch=lambda ps, prm: images.stitch(_ordered(ps, prm), True), ask=_ask_order("Stitch images"))
     add("img-stitch-h", "Side by side", IMG_IN, "combine", menu=ST,
         batch=lambda ps, prm: images.stitch(_ordered(ps, prm), False), ask=_ask_order("Stitch images"))
+    add("img-make-gif", "Make animated GIF", IMG_IN, "combine",
+        batch=lambda ps, prm: images.make_gif(_ordered(ps, prm)), ask=_ask_order("Animated GIF"))
+    add("img-slideshow", "Make slideshow video (MP4)", IMG_IN, "combine",
+        batch=lambda ps, prm: images.make_slideshow(_ordered(ps, prm)), ask=_ask_order("Slideshow"))
     add("img-contact-sheet", "Make a contact sheet", IMG_IN, "combine",
         batch=lambda ps, _: images.contact_sheet(sorted(ps, key=natural_key)))
 
@@ -489,10 +493,11 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
-MULTI = {"combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h"}
+MULTI = {"combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h", "img-make-gif",
+         "img-slideshow"}
 
 
 def _finalize(ops: list[Operation]) -> list[Operation]:

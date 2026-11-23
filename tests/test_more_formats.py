@@ -608,3 +608,17 @@ def test_parallel_batch_convert(tmp_path):
     bad.write_bytes(b"nope")
     assert run("img-to-jpg", *files, bad) == 1  # one bad file is reported, the rest still convert
     assert len(list(tmp_path.glob("*.jpg"))) == 12
+
+
+def test_gif_and_slideshow_from_images(tmp_path):
+    files = []
+    for i, c in enumerate(("red", "green", "blue")):
+        p = tmp_path / f"{i}.jpg"
+        Image.new("RGB", (640, 480) if i != 1 else (480, 640), c).save(p)
+        files.append(p)
+    assert run("img-make-gif", *files) == 0
+    with Image.open(tmp_path / "0 (animation).gif") as g:
+        assert g.n_frames == 3
+    assert run("img-slideshow", *files) == 0
+    info = media.probe(tmp_path / "0 (slideshow).mp4")
+    assert info.vcodec == "h264" and 8.0 < info.duration < 10.5

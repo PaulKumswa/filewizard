@@ -99,7 +99,8 @@ python -m filewizard install        # classic menu (see "Two menu modes")
 ### Optional extras
 - **Microsoft Office or [LibreOffice](https://www.libreoffice.org/)**: needed for Word/PowerPoint/Excel → PDF
   (Office gives identical output to *Save as PDF*; LibreOffice is the free fallback).
-- **OCR** (*Make searchable*, *Copy text out of image*) works out of the box with the installer (English).
+- **OCR** (*Make searchable*, *Copy text out of image*) works out of the box with the installer (English);
+  add Spanish, French, German, Chinese and ~20 more in *Settings → OCR languages* (small one-time downloads).
   From source, install [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) for its language data.
 - **AI background removal**: `pip install rembg` (downloads a ~170 MB model on first use).
 - **7-Zip**: lets *Extract* open RAR/ISO on older Windows versions.

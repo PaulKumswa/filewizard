@@ -382,6 +382,12 @@ def _build() -> list[Operation]:
     for h in (1080, 720, 480):
         add(f"vid-{h}p", f"{h}p", VIDEO_EXTS, "edit", menu=RZ, per_file=lambda p, _, h=h: media.resize(p, h))
 
+    CR = ("Crop",)
+    for (a, b), name in (((9, 16), "9:16 vertical (Reels, TikTok, Shorts)"), ((1, 1), "1:1 square"),
+                         ((16, 9), "16:9 widescreen")):
+        add(f"vid-crop-{a}x{b}", name, VIDEO_EXTS, "edit", menu=CR,
+            per_file=lambda p, _, a=a, b=b: media.crop_aspect(p, a, b))
+
     # ===== trim / pages =====
     add("media-trim", "Trim…", VIDEO_EXTS | AUDIO_EXTS, "edit",
         per_file=lambda p, prm: media.trim(p, prm["span"]), ask=_ask_trim, param_names=("span",))
@@ -524,7 +530,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "vid-crop-9x16", "vid-crop-1x1", "vid-crop-16x9", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MIXED = {"media-soundtrack"}

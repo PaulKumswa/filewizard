@@ -570,3 +570,24 @@ def replace_audio(files: list[Path]) -> list[Path]:
          "-af", f"afade=t=out:st={fade:.2f}:d=1.5", "-t", f"{vinfo.duration:.3f}", "-shortest",
          "-movflags", "+faststart", str(tmp)], vinfo.duration, f"Adding {a.name} to {v.name}")
     return [_finish(out, tmp)]
+
+
+def crop_aspect(src: Path, w_ratio: int, h_ratio: int) -> list[Path]:
+    """Centre-crop a video to an aspect ratio (9:16 for Reels/TikTok/Shorts, 1:1, 16:9)."""
+    info = probe(src)
+    if not info.vcodec or not info.width:
+        raise UserError(f"{src.name} has no video track.")
+    target = w_ratio / h_ratio
+    cur = info.width / info.height
+    if abs(cur - target) < 0.01:
+        raise UserError(f"{src.name} is already {w_ratio}:{h_ratio}.")
+    if cur > target:  # too wide: crop the sides
+        cw, ch = int(info.height * target) // 2 * 2, info.height // 2 * 2
+    else:  # too tall: crop top and bottom
+        cw, ch = info.width // 2 * 2, int(info.width / target) // 2 * 2
+    label = {(9, 16): "vertical", (1, 1): "square", (16, 9): "widescreen"}.get((w_ratio, h_ratio), f"{w_ratio}x{h_ratio}")
+    out = _out(src, label, ".mp4")
+    tmp = _tmp_for(out)
+    run(["-i", str(src), "-map", "0:v:0", "-map", "0:a:0?", "-vf", f"crop={cw}:{ch}", *_H264, "-c:a", "copy",
+         "-movflags", "+faststart", str(tmp)], info.duration, f"Cropping {src.name} to {w_ratio}:{h_ratio}")
+    return [_finish(out, tmp)]

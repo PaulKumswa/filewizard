@@ -505,3 +505,15 @@ def test_recycle_removes_only_given_outputs(tmp_path):
     (folder / "p1.pdf").write_text("z")
     recycle([made, folder, tmp_path / "missing.pdf"])
     assert keep.exists() and not made.exists() and not folder.exists()
+
+
+def test_palette_choices_follow_selection(tmp_path):
+    from filewizard.operations import for_selection
+
+    a, b = tmp_path / "a.jpg", tmp_path / "b.jpg"
+    for p in (a, b):
+        p.write_bytes(b"x")
+    one = {op.id for op in for_selection([a])}
+    two = {op.id for op in for_selection([a, b])}
+    assert "combine-pdf" not in one and "img-make-gif" not in one and "img-to-png" in one
+    assert "combine-pdf" in two and "img-make-gif" in two

@@ -531,7 +531,11 @@ def for_ext(ext: str) -> list[Operation]:
 def for_selection(files: list[Path]) -> list[Operation]:
     """Actions that make sense for this selection: they apply to every selected file
     (batch actions like Combine/Join/ZIP need only apply to each file too)."""
-    return [op for op in OPERATIONS if op.id != "palette" and all(op.applies_to_path(f) for f in files)]
+    kinds = {DIR if f.is_dir() else f.suffix.lower() for f in files}
+    return [op for op in OPERATIONS
+            if op.id != "palette" and all(op.applies_to_path(f) for f in files)
+            and not (op.multi and len(files) < 2)        # same rules as the native menu
+            and not (op.mixed and len(kinds) < 2)]
 
 
 def execute(op: Operation, files: list[Path], params: Params) -> tuple[list[Path], list[str], list[str]]:

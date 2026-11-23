@@ -50,13 +50,16 @@ Long jobs show a progress bar with **Cancel**.
 
 ## Screenshots
 
-<sub>Captured from the real dialogs on a Linux test display; on Windows they use the native theme.</sub>
+<sub>Captured from the real dialogs on a Linux test display; on Windows they use the native theme and
+follow your light/dark setting (dark mode shown below the table).</sub>
 
 | Pick pages by clicking thumbnails | Sign a PDF | Search every action ("All actions…") |
 |---|---|---|
 | <img src="docs/screenshots/pages.png" width="300"> | <img src="docs/screenshots/sign.png" width="220"> | <img src="docs/screenshots/palette.png" width="300"> |
 | **Order files before merging** | **Progress with Cancel** | **Done: Open / Show in folder / Undo** |
 | <img src="docs/screenshots/order.png" width="300"> | <img src="docs/screenshots/progress.png" width="300"> | <img src="docs/screenshots/toast.png" width="260"> |
+
+<img src="docs/screenshots/dark-mode.png" width="420" alt="Dark mode">
 
 ## Install
 

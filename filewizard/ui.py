@@ -21,6 +21,70 @@ log = logging.getLogger("filewizard")
 
 ACCENT = "#3462dc"
 
+LIGHT = {"bg": "#f3f3f3", "fg": "#1b1b1b", "muted": "#5c5c5c", "field": "#ffffff", "button": "#fdfdfd",
+         "border": "#c8c8c8", "select": "#cfe0fc", "canvas": "#eef0f4", "accent": "#3462dc"}
+DARK = {"bg": "#202020", "fg": "#f2f2f2", "muted": "#a8a8a8", "field": "#2b2b2b", "button": "#2d2d2d",
+        "border": "#3c3c3c", "select": "#2b4a80", "canvas": "#181818", "accent": "#6b9cff"}
+
+
+def dark_mode() -> bool:
+    """Follow Windows' 'app mode' (Settings > Personalization > Colors). FILEWIZARD_THEME overrides."""
+    forced = os.environ.get("FILEWIZARD_THEME")
+    if forced in ("dark", "light"):
+        return forced == "dark"
+    if sys.platform != "win32":
+        return False
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
+            return winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 0
+    except OSError:
+        return False
+
+
+THEME = DARK if dark_mode() else LIGHT
+
+
+def _apply_theme(root) -> None:
+    """Colour ttk + classic Tk widgets to match the Windows light/dark setting."""
+    from tkinter import ttk
+
+    t = THEME
+    style = ttk.Style(root)
+    if THEME is DARK or sys.platform != "win32":
+        style.theme_use("clam")  # the native Windows theme can't be recoloured
+    if THEME is DARK:
+        style.configure(".", background=t["bg"], foreground=t["fg"], fieldbackground=t["field"],
+                        bordercolor=t["border"], lightcolor=t["bg"], darkcolor=t["bg"], troughcolor=t["field"])
+        style.configure("TButton", background=t["button"], foreground=t["fg"], padding=(10, 4))
+        style.map("TButton", background=[("active", t["border"]), ("disabled", t["bg"])],
+                  foreground=[("disabled", t["muted"])])
+        style.configure("TEntry", fieldbackground=t["field"], foreground=t["fg"], insertcolor=t["fg"])
+        style.configure("Treeview", background=t["field"], fieldbackground=t["field"], foreground=t["fg"])
+        style.map("Treeview", background=[("selected", t["select"])])
+        style.configure("TCheckbutton", background=t["bg"], foreground=t["fg"])
+        style.configure("TRadiobutton", background=t["bg"], foreground=t["fg"])
+        style.configure("Horizontal.TProgressbar", background=t["accent"], troughcolor=t["field"])
+        root.configure(background=t["bg"])
+        root.option_add("*Listbox.background", t["field"])
+        root.option_add("*Listbox.foreground", t["fg"])
+        root.option_add("*Listbox.selectBackground", t["select"])
+        root.option_add("*Text.background", t["field"])
+        root.option_add("*Text.foreground", t["fg"])
+        root.option_add("*Canvas.background", t["canvas"])
+        if sys.platform == "win32":  # dark title bar (DWMWA_USE_IMMERSIVE_DARK_MODE = 20)
+            try:
+                import ctypes
+
+                root.update_idletasks()
+                hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
+                val = ctypes.c_int(1)
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(val), ctypes.sizeof(val))
+            except Exception:
+                pass
+
 
 def interactive() -> bool:
     return os.environ.get("FILEWIZARD_NONINTERACTIVE") != "1"
@@ -52,6 +116,10 @@ def _root(title: str = APP_NAME, hidden: bool = True):
     if hidden:
         root.withdraw()
     root.attributes("-topmost", True)  # don't hide behind Explorer
+    try:
+        _apply_theme(root)
+    except Exception:
+        pass
     try:
         from .util import app_dir
 
@@ -282,7 +350,7 @@ def order_files(files: list[Path], title: str, add_types: Iterable[str] | None =
     ttk.Button(foot, text="Cancel", command=root.destroy).pack(side="right")
     ok_btn = ttk.Button(foot, text="Continue", command=ok)
     ok_btn.pack(side="right", padx=6)
-    hint = ttk.Label(foot, text="", foreground="#666")
+    hint = ttk.Label(foot, text="", foreground=THEME["muted"])
     hint.pack(side="left")
     if len(items) < 2:
         hint.configure(text="Only one file selected — use “Add files…” to add more.")
@@ -327,7 +395,7 @@ def run_with_progress(title: str, work: Callable[[], T]) -> T:
             frm.pack(fill="both", expand=True)
             head = ttk.Label(frm, text=f"{title}…", font=("Segoe UI", 11, "bold"))
             head.pack(anchor="w")
-            detail = ttk.Label(frm, text="", width=60, foreground="#555")
+            detail = ttk.Label(frm, text="", width=60, foreground=THEME["muted"])
             detail.pack(anchor="w", pady=(4, 8))
             bar = ttk.Progressbar(frm, length=420, mode="indeterminate")
             bar.pack(fill="x")
@@ -428,17 +496,18 @@ def notify_done(outputs: list[Path], summary: str = "", undoable: bool = True) -
         return
     root = _root(APP_NAME, hidden=False)
     root.overrideredirect(True)
-    root.configure(bg=ACCENT)
-    inner = tk.Frame(root, bg="white", padx=14, pady=12)
+    t = THEME
+    root.configure(bg=t["accent"])
+    inner = tk.Frame(root, bg=t["field"], padx=14, pady=12)
     inner.pack(fill="both", expand=True, padx=(4, 0))
     first = outputs[0]
     title = "✓  Done" if len(outputs) == 1 else f"✓  Done — {len(outputs)} files"
-    tk.Label(inner, text=title, bg="white", fg=ACCENT, font=("Segoe UI", 11, "bold")).pack(anchor="w")
+    tk.Label(inner, text=title, bg=t["field"], fg=t["accent"], font=("Segoe UI", 11, "bold")).pack(anchor="w")
     name = first.name if len(outputs) == 1 else f"{first.name}  +{len(outputs) - 1} more"
-    tk.Label(inner, text=name[:60], bg="white", fg="#222", font=("Segoe UI", 10)).pack(anchor="w")
+    tk.Label(inner, text=name[:60], bg=t["field"], fg=t["fg"], font=("Segoe UI", 10)).pack(anchor="w")
     if summary:
-        tk.Label(inner, text=summary[:80], bg="white", fg="#666", font=("Segoe UI", 9)).pack(anchor="w")
-    row = tk.Frame(inner, bg="white")
+        tk.Label(inner, text=summary[:80], bg=t["field"], fg=t["muted"], font=("Segoe UI", 9)).pack(anchor="w")
+    row = tk.Frame(inner, bg=t["field"])
     row.pack(anchor="w", pady=(8, 0))
 
     def act(fn):
@@ -546,7 +615,7 @@ def palette(files: list[Path], ops: list) -> str | None:
     tree.bind("<Double-1>", choose)
     foot = ttk.Frame(frm)
     foot.pack(fill="x", pady=(8, 0))
-    ttk.Label(foot, text="Type to search · ↑↓ to pick · Enter to run", foreground="#666").pack(side="left")
+    ttk.Label(foot, text="Type to search · ↑↓ to pick · Enter to run", foreground=THEME["muted"]).pack(side="left")
     ttk.Button(foot, text="Cancel", command=root.destroy).pack(side="right")
     ttk.Button(foot, text="Run", command=choose).pack(side="right", padx=6)
     fill()
@@ -572,7 +641,7 @@ def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None
     frm.pack(fill="both", expand=True)
     ttk.Label(frm, text=f"{APP_NAME} {__version__}", font=("Segoe UI", 14, "bold")).pack(anchor="w")
     ttk.Label(frm, text="Right-click any file → FileWizard. On Windows 11: “Show more options” or Shift+right-click.",
-              foreground="#555", wraplength=460).pack(anchor="w", pady=(2, 12))
+              foreground=THEME["muted"], wraplength=460).pack(anchor="w", pady=(2, 12))
 
     cfg = load()
     notify = tk.BooleanVar(value=cfg.get("notify", True))
@@ -655,12 +724,12 @@ def pick_pages(pdf: Path, verb: str, max_pages: int = 400) -> str | None:
     frm.pack(fill="both", expand=True)
     head = ttk.Label(frm, text=f"Click the pages to {verb}.", font=("Segoe UI", 11, "bold"))
     head.pack(anchor="w")
-    canvas = tk.Canvas(frm, width=760, height=520, background="#eef0f4", highlightthickness=0)
+    canvas = tk.Canvas(frm, width=760, height=520, background=THEME["canvas"], highlightthickness=0)
     bar = ttk.Scrollbar(frm, orient="vertical", command=canvas.yview)
     canvas.configure(yscrollcommand=bar.set)
     canvas.pack(side="left", fill="both", expand=True, pady=(8, 0))
     bar.pack(side="left", fill="y", pady=(8, 0))
-    grid = tk.Frame(canvas, background="#eef0f4")
+    grid = tk.Frame(canvas, background=THEME["canvas"])
     canvas.create_window((0, 0), window=grid, anchor="nw")
     selected: set[int] = set()
     images, tiles = [], []
@@ -669,7 +738,7 @@ def pick_pages(pdf: Path, verb: str, max_pages: int = 400) -> str | None:
     result: dict[str, str | None] = {"v": None}
 
     def paint(i):
-        tiles[i].configure(background=ACCENT if i in selected else "#eef0f4")
+        tiles[i].configure(background=THEME["accent"] if i in selected else THEME["canvas"])
 
     def toggle(i, _=None):
         selected.symmetric_difference_update({i})
@@ -681,11 +750,11 @@ def pick_pages(pdf: Path, verb: str, max_pages: int = 400) -> str | None:
         pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
         img = tk.PhotoImage(data=pix.tobytes("ppm"))
         images.append(img)
-        tile = tk.Frame(grid, background="#eef0f4", padx=4, pady=4, cursor="hand2")
+        tile = tk.Frame(grid, background=THEME["canvas"], padx=4, pady=4, cursor="hand2")
         tile.grid(row=i // cols, column=i % cols, padx=6, pady=6)
         lab = tk.Label(tile, image=img, borderwidth=1, relief="solid")
         lab.pack()
-        num = tk.Label(tile, text=str(i + 1), background="#eef0f4")
+        num = tk.Label(tile, text=str(i + 1), background=THEME["canvas"], foreground=THEME["fg"])
         num.pack()
         for w in (tile, lab, num):
             w.bind("<Button-1>", lambda e, i=i: toggle(i))
@@ -750,7 +819,7 @@ def place_signature(pdf: Path, sig_png: bytes) -> dict | None:
     frm.pack(fill="both", expand=True)
     ttk.Label(frm, text="Click where the signature goes. Scroll to resize.",
               font=("Segoe UI", 11, "bold")).pack(anchor="w")
-    canvas = tk.Canvas(frm, background="#cfd3da", highlightthickness=0, cursor="crosshair")
+    canvas = tk.Canvas(frm, background=THEME["canvas"], highlightthickness=0, cursor="crosshair")
     canvas.pack(fill="both", expand=True, pady=8)
     sig_doc = pymupdf.open("png", sig_png)
     sig_ratio = sig_doc[0].rect.height / sig_doc[0].rect.width

@@ -663,3 +663,16 @@ def test_n_up(tmp_path):
     assert run("pdf-2up", src) == 0
     with pymupdf.open(tmp_path / "slides (2 per page).pdf") as d:
         assert d.page_count == 3 and d[0].rect.width > d[0].rect.height
+
+
+def test_trim_margins(tmp_path):
+    d = pymupdf.open()
+    p = d.new_page()
+    p.insert_text((250, 380), "small centred text", fontsize=12)
+    src = tmp_path / "paper.pdf"
+    d.save(src)
+    assert run("pdf-trim", src) == 0
+    with pymupdf.open(tmp_path / "paper (trimmed).pdf") as o:
+        r = o[0].rect
+        assert r.width < 250 and r.height < 100 and "small centred text" in o[0].get_text()
+    assert run("pdf-trim", tmp_path / "paper (trimmed).pdf") == 1

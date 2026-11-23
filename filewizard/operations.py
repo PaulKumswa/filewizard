@@ -379,6 +379,7 @@ def _build() -> list[Operation]:
         param_names=("pages",))
     add("pdf-2up", "2 pages per sheet (print)", PDF_EXTS, "edit", menu=PG, per_file=lambda p, _: pdf.n_up(p, 2))
     add("pdf-4up", "4 pages per sheet (print)", PDF_EXTS, "edit", menu=PG, per_file=lambda p, _: pdf.n_up(p, 4))
+    add("pdf-trim", "Trim white margins", PDF_EXTS, "edit", menu=PG, per_file=lambda p, _: pdf.trim_margins(p))
     add("pdf-reverse", "Reverse order", PDF_EXTS, "edit", menu=PG, per_file=lambda p, _: pdf.reverse(p))
     add("pdf-remove-blank", "Remove blank pages", PDF_EXTS, "edit", menu=PG,
         per_file=lambda p, _: pdf.remove_blank_pages(p))
@@ -500,7 +501,7 @@ SECONDARY = {
     "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
     "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
     "img-under-1024kb", "img-under-custom", "details", "img-watermark", "img-icons", "vid-subs",
-    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
+    "vid-extract-subs", "copy-text", "pdf-rotate-some", "img-stitch-v", "img-stitch-h", "media-ringtone", "img-make-gif", "img-slideshow", "media-soundtrack", "pdf-2up", "pdf-4up", "pdf-trim", "pdf-under-5mb", "pdf-under-1mb", "pdf-under-custom",
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MIXED = {"media-soundtrack"}

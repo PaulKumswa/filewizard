@@ -668,3 +668,35 @@ def n_up(src: Path, per_sheet: int) -> list[Path]:
         page.draw_rect(cell, color=(0.85, 0.85, 0.85), width=0.5)
     doc.close()
     return [_save(out_doc, sibling(src, f"{per_sheet} per page", ".pdf"))]
+
+
+def trim_margins(src: Path, pad: float = 14) -> list[Path]:
+    """Crop each page to its content (plus a little padding): easier reading on phones/tablets."""
+    pymupdf = _pymupdf()
+    doc = _open(src)
+    changed = 0
+    for page in doc:
+        box = pymupdf.Rect()
+        try:
+            for kind, rect in page.get_bboxlog():
+                r = pymupdf.Rect(rect)
+                if kind.startswith("ignore") or r.is_empty or r.is_infinite:
+                    continue
+                # skip full-page white backgrounds some generators paint first
+                if r.contains(page.rect) or r.get_area() > page.rect.get_area() * 0.98:
+                    continue
+                box |= r
+        except Exception:
+            continue
+        if box.is_empty:
+            continue
+        visible = page.rect  # content boxes are relative to the current visible area
+        crop = (box + (-pad, -pad, pad, pad)) & visible
+        if crop.get_area() < visible.get_area() * 0.95:
+            cb = page.cropbox  # set_cropbox wants media-box coordinates
+            page.set_cropbox(crop + (cb.x0, cb.y0, cb.x0, cb.y0))
+            changed += 1
+    if not changed:
+        doc.close()
+        raise UserError(f"{src.name} has no wide white margins to trim.")
+    return [_save(doc, sibling(src, "trimmed", ".pdf"))]

@@ -43,6 +43,7 @@ The menu adapts to what you right-clicked and how many files are selected.
 | **Archives** — ZIP, 7z, TAR, GZ, RAR, ISO… | Extract here · Extract to folder (protected against malicious "zip-slip" archives) |
 | **Any file or folder** | Compress to ZIP / 7z · Rename selected… (`Trip {n}` → Trip 01, Trip 02…; `{taken}` = photo date) · Show details (size, dimensions, duration, camera, **GPS warning**) · Checksum (SHA-256) · Folders: combine all PDFs/images inside into one PDF |
 | **A mix** (e.g. 2 PDFs + a photo + a Word doc) | **Combine selected into one PDF**, with a bookmark per file |
+| **Empty space inside a folder** | **Paste clipboard image as file** (Win+Shift+S → right-click → PNG) · Paste clipboard text as .txt · Combine the PDFs/images in this folder into one PDF |
 
 Results are saved **next to the original** (or in a `FileWizard` subfolder, your choice in Settings), never overwriting anything (`report (merged).pdf`,
 `photo (2).png`). When a job finishes, a small notification offers **Open**, **Show in folder** and **Undo** (sends what was just created to the Recycle Bin).

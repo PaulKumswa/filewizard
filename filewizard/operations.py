@@ -58,6 +58,7 @@ class Operation:
     priority: int = 1                            # 1 = core; 2 = dropped first when space is short
     multi: bool = False                          # only meaningful with 2+ files selected
     mixed: bool = False                          # only meaningful when the selection mixes types
+    two: bool = False                            # needs exactly two files
 
     def applies_to(self, ext: str) -> bool:
         ext = ext.lower()
@@ -555,6 +556,7 @@ SECONDARY = {
     "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
 }
 MIXED = {"media-soundtrack"}
+TWO = {"pdf-compare", "media-soundtrack"}
 MULTI = {"pdf-compare", "data-merge", "media-soundtrack", "combine-pdf", "media-join", "img-contact-sheet", "img-stitch-v", "img-stitch-h", "img-make-gif",
          "img-slideshow"}
 
@@ -562,8 +564,8 @@ MULTI = {"pdf-compare", "data-merge", "media-soundtrack", "combine-pdf", "media-
 def _finalize(ops: list[Operation]) -> list[Operation]:
     from dataclasses import replace
 
-    return [replace(op, priority=2 if op.id in SECONDARY else 1, multi=op.id in MULTI, mixed=op.id in MIXED)
-            for op in ops]
+    return [replace(op, priority=2 if op.id in SECONDARY else 1, multi=op.id in MULTI, mixed=op.id in MIXED,
+                    two=op.id in TWO) for op in ops]
 
 
 OPERATIONS: list[Operation] = _finalize(_build())
@@ -600,7 +602,8 @@ def for_selection(files: list[Path]) -> list[Operation]:
     return [op for op in OPERATIONS
             if op.id != "palette" and all(op.applies_to_path(f) for f in files)
             and not (op.multi and len(files) < 2)        # same rules as the native menu
-            and not (op.mixed and len(kinds) < 2)]
+            and not (op.mixed and len(kinds) < 2)
+            and not (op.two and len(files) != 2)]
 
 
 def execute(op: Operation, files: list[Path], params: Params) -> tuple[list[Path], list[str], list[str]]:

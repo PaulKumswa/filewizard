@@ -832,7 +832,9 @@ def test_photos_to_searchable_pdf(tmp_path):
 def test_font_sample(tmp_path):
     import glob
 
-    fonts = glob.glob("/usr/share/fonts/**/*.ttf", recursive=True) + glob.glob("C:/Windows/Fonts/arial.ttf")
+    fonts = [f for f in glob.glob("/usr/share/fonts/**/*.ttf", recursive=True) + glob.glob("C:/Windows/Fonts/arial.ttf")
+             if "emoji" not in f.lower() and "color" not in f.lower()]  # bitmap-only fonts can't be sampled
+    fonts.sort(key=lambda f: "dejavusans.ttf" not in f.lower())
     if not fonts:
         pytest.skip("no TTF font on this machine")
     src = tmp_path / "MyFont.ttf"

@@ -70,7 +70,8 @@ def _samples(d: Path) -> dict[str, Path]:
     wb.active.append(["x", "y"])
     wb.save(d / "sample.xlsx")
     s[".xlsx"] = d / "sample.xlsx"
-    fonts = glob.glob("/usr/share/fonts/**/*.ttf", recursive=True) + glob.glob("C:/Windows/Fonts/arial.ttf")
+    fonts = [f for f in glob.glob("/usr/share/fonts/**/*.ttf", recursive=True) + glob.glob("C:/Windows/Fonts/arial.ttf")
+             if "emoji" not in f.lower() and "color" not in f.lower()]
     if fonts:
         shutil.copy(fonts[0], d / "sample.ttf")
         s[".ttf"] = d / "sample.ttf"

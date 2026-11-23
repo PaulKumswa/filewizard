@@ -644,6 +644,9 @@ def font_sample(src: Path) -> list[Path]:
     try:
         ImageFont.truetype(str(src), 24)
     except OSError as e:
+        if "pixel size" in str(e):  # colour-emoji / bitmap fonts only come in fixed sizes
+            raise UserError(f"{src.name} is a bitmap or colour-emoji font that only works at fixed sizes, "
+                            "so a sample sheet can't be drawn.") from e
         raise UserError(f"Couldn't read {src.name} as a font ({e}).") from e
     W, pad = 1600, 40
     lines = [(28, src.stem), (40, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"), (40, "abcdefghijklmnopqrstuvwxyz"),

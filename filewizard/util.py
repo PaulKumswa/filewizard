@@ -12,7 +12,13 @@ APP_NAME = "FileWizard"
 
 
 def app_dir() -> Path:
-    """Per-user folder for logs, the icon and batch queues."""
+    """Per-user folder for logs, settings, the icon and batch queues.
+    FILEWIZARD_HOME overrides it (used by tests to keep each test's settings private)."""
+    override = os.environ.get("FILEWIZARD_HOME")
+    if override:
+        d = Path(override)
+        d.mkdir(parents=True, exist_ok=True)
+        return d
     if sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     else:

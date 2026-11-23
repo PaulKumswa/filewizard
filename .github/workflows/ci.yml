@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:  # least privilege: CI only needs to read the code
+  contents: read
+
 concurrency:  # a newer push cancels the older run on the same branch
   group: ci-${{ github.ref }}
   cancel-in-progress: true

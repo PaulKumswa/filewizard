@@ -21,6 +21,11 @@ Windows 11: *Show more options* / Shift+right-click, or tick the installer optio
 instance, fail-fast on prompts, 3-minute watchdog), how dialogs look under your Windows theme, and the
 visual effect of the Windows 11 full-menu option (the setting itself is tested).
 
+**Note on the timeline:** work paused at ~3:00 AM Eastern (08:00 UTC) when this session hit its usage limit,
+and resumed at 7:10 AM Eastern just to fix the one failing test from the last run (a colour-emoji font
+picked by a test) and push. The last run with the installer fully green end to end is run #25; the final
+pushes (OCR languages, paper size, font fix) passed all 282 local tests and are in CI now.
+
 Running notes below: what was tried, what happened, what's next.
 
 ## Decisions & experiments (closed loops)

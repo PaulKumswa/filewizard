@@ -756,3 +756,25 @@ def test_pdf_compare(tmp_path):
     html = (tmp_path / "v1 (comparison).html").read_text(encoding="utf-8")
     assert "rent" in html and "diff_chg" in html and "1 changed passage" in html  # $9[0→5]0 highlighted
     assert run("pdf-compare", a, a) == 1  # identical: friendly message
+
+
+def test_rename_rolls_back_on_failure(tmp_path, monkeypatch):
+    files = []
+    for n in ("a.txt", "b.txt", "c.txt"):
+        p = tmp_path / n
+        p.write_text(n)
+        files.append(p)
+    real = Path.rename
+    calls = {"n": 0}
+
+    def flaky(self, target):
+        calls["n"] += 1
+        if calls["n"] == 5:  # fail during the second phase
+            raise PermissionError(13, "in use")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "rename", flaky)
+    assert run("rename", *files, "-p", "pattern=New {n}") == 1
+    monkeypatch.setattr(Path, "rename", real)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["a.txt", "b.txt", "c.txt"]
+    assert (tmp_path / "b.txt").read_text() == "b.txt"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import sys
 import re
 from datetime import datetime
@@ -97,18 +98,30 @@ def plan_rename(files: list[Path], pattern: str) -> list[tuple[Path, Path]]:
 
 
 def rename(files: list[Path], pattern: str) -> list[Path]:
+    """Rename in two phases via temporary names (so swaps like a->b, b->a can't collide).
+    All or nothing: if any step fails (file open elsewhere, permissions), everything is put back."""
     plan = plan_rename(files, pattern)
-    # two phases via temporary names so swaps (a->b, b->a) can't collide
-    temps = []
-    for i, (src, _) in enumerate(plan):
-        tmp = src.with_name(f".fw-rename-{i}-{src.name}")
-        src.rename(tmp)
-        temps.append(tmp)
-    out = []
-    for tmp, (_, dst) in zip(temps, plan):
-        tmp.rename(dst)
-        out.append(dst)
-    return out
+    done: list[tuple[Path, Path]] = []  # (current path, original path)
+    try:
+        temps = []
+        for i, (src, _) in enumerate(plan):
+            tmp = src.with_name(f".fw-rename-{os.getpid()}-{i}-{src.name}")
+            src.rename(tmp)
+            done.append((tmp, src))
+            temps.append(tmp)
+        out = []
+        for k, (tmp, (orig, dst)) in enumerate(zip(temps, plan)):
+            tmp.rename(dst)
+            done[k] = (dst, orig)
+            out.append(dst)
+        return out
+    except OSError as e:
+        for current, original in reversed(done):
+            try:
+                current.rename(original)
+            except OSError:
+                pass
+        raise UserError(f"Renaming stopped ({e.strerror or e}); all files were put back as they were.") from e
 
 
 def details(files: list[Path]) -> tuple[list[Path], str]:

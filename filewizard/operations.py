@@ -536,6 +536,8 @@ def _folder_docs(folder: Path) -> list[Path]:
                    key=natural_key)
     if not items:
         raise UserError(f"No PDFs, images or documents directly inside '{folder.name}'.")
+    if len(items) == 1:
+        raise UserError(f"'{folder.name}' only has one document ({items[0].name}), so there's nothing to combine.")
     pdfs_out = [f for f in items if "(combined)" not in f.stem]
     return pdfs_out
 

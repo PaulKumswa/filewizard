@@ -196,30 +196,46 @@ def write_launcher() -> Path:
     return p
 
 
+def draw_icon(size: int = 256):
+    """FileWizard's icon: a blue document with a folded corner and a gold sparkle.
+    Drawn at 4x and downsampled, so edges stay smooth at every size."""
+    import math
+
+    from PIL import Image, ImageDraw
+
+    S = size * 4
+    u = S / 256
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    # page shape: rounded rectangle with the top-right corner cut off (via a mask)
+    left, top, right, bottom, fold = 30 * u, 10 * u, 196 * u, 236 * u, 56 * u
+    mask = Image.new("L", (S, S), 0)
+    md = ImageDraw.Draw(mask)
+    md.rounded_rectangle((left, top, right, bottom), radius=26 * u, fill=255)
+    md.polygon([(right - fold, top - 2 * u), (right + 2 * u, top - 2 * u), (right + 2 * u, top + fold)], fill=0)
+    img.paste((41, 98, 214, 255), (0, 0), mask)
+    d = ImageDraw.Draw(img)
+    d.polygon([(right - fold, top), (right, top + fold), (right - fold + 10 * u, top + fold)], fill=(147, 182, 246))
+    for y, w in ((100, 100), (136, 80), (172, 56)):
+        d.rounded_rectangle((62 * u, y * u, (62 + w) * u, (y + 16) * u), radius=8 * u, fill=(255, 255, 255, 240))
+    # four-point sparkle, fully inside the canvas
+    cx, cy, r = 190 * u, 196 * u, 50 * u
+    pts = []
+    for k in range(8):
+        rad = r if k % 2 == 0 else r * 0.3
+        ang = -math.pi / 2 + k * math.pi / 4
+        pts.append((cx + rad * math.cos(ang), cy + rad * math.sin(ang)))
+    d.polygon(pts, fill=(255, 193, 7))
+    return img.resize((size, size), Image.LANCZOS)
+
+
 def write_icon() -> str | None:
-    """Draw a simple icon so the menu entry is easy to spot."""
+    """Save the icon (multi-size .ico) so the menu, dialogs and installer can use it."""
     try:
-        from PIL import Image, ImageDraw
+        img = draw_icon(256)
     except ImportError:
         return None
-    s = 256
-    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle((28, 12, 200, 244), radius=22, fill=(52, 98, 220))
-    d.polygon([(150, 12), (200, 62), (150, 62)], fill=(150, 180, 250))
-    for y in (100, 140, 180):
-        d.rounded_rectangle((60, y, 168, y + 16), radius=8, fill=(255, 255, 255))
-    # the "wand" star
-    cx, cy, r = 200, 196, 46
-    star = []
-    import math
-    for k in range(10):
-        rad = r if k % 2 == 0 else r * 0.45
-        a = math.pi / 2 + k * math.pi / 5
-        star.append((cx + rad * math.cos(a), cy - rad * math.sin(a)))
-    d.polygon(star, fill=(255, 196, 0), outline=(120, 80, 0))
     p = app_dir() / "filewizard.ico"
-    img.save(p, "ICO", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (256, 256)])
+    img.save(p, "ICO", sizes=[(16, 16), (20, 20), (24, 24), (32, 32), (48, 48), (64, 64), (256, 256)])
     return str(p)
 
 

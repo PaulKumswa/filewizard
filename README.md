@@ -8,33 +8,35 @@ Everything runs locally on your PC.
 
 ```
 FileWizard ▸
-    Convert to ▸      PDF · PNG · JPG · WebP · HEIC · AVIF · GIF · TIFF · ICO …
+    Rotate › Right (clockwise)    ← your recent actions, one hover away
     ─────────
-    Merge selected PDFs…          ← only appears when you've selected several
+    Convert to ▸      Word · Excel · PowerPoint · PNG · JPG · Text
     ─────────
-    Compress
-    Pages ▸           Split · Extract… · Delete… · Reverse · Remove blank pages
-    Rotate ▸          Right · Left · 180°
-    Edit ▸            Page numbers · Watermark… · Black & white · Flatten forms
+    Merge selected PDFs…          ← only when several are selected
+    Compare the two…              ← only when two are selected
+    ─────────
+    Compress ▸        Same look · Under 5 / 2 / 1 MB · Custom…
+    Pages ▸           Split · Extract… · Delete… · 2 or 4 per sheet · Trim margins · Remove blank pages
+    Rotate ▸          Right · Left · Some pages… · 180°
+    Edit ▸            Page numbers · Watermark… · Sign… · Black & white · Flatten forms
     Password ▸        Add… · Remove…
     ─────────
-    Make searchable (OCR)
-    Extract ▸         Images
+    Make searchable (OCR) · Copy all text · Extract ▸ Images
     ─────────
-    More ▸            ZIP · 7z · Rename selected… · Checksum
+    More ▸            ZIP · 7z · Rename selected… · Show details · Checksum · Settings…
     ─────────
     All actions…      ← searchable list of everything
 ```
-
-The menu adapts to what you right-clicked and how many files are selected.
+That's a PDF. The menu adapts to what you right-clicked and how many files are selected, and you can
+hide actions you never use (*Settings → Customize menu*).
 
 ## What it can do
 
 | Right-click on… | Actions |
 |---|---|
-| **Images** — JPG, PNG, WebP, **HEIC** (iPhone), AVIF, GIF, TIFF, BMP, ICO, **SVG**, PSD, TGA, JPEG 2000, **camera RAW** (CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF…) | Convert to PDF/PNG/JPG/WebP/HEIC/AVIF/GIF/TIFF/BMP/ICO (animations stay animated) · Combine into one PDF · **Animated GIF / slideshow video** from selected photos · Stitch into one image · Contact sheet · Compress (same look, or **under 1 MB / 500 KB / 200 KB / any size** for upload forms) · Resize (25/50/75%, 4K, Full HD, 1280, 800, custom) · Rotate/flip · Black & white · Crop borders · Pad to square · Make white background transparent · Watermark · Website/app icon pack · Remove background (AI, optional) · Copy text out of image (OCR) · Remove location/camera info |
-| **PDF** | Convert to Word, **Excel (tables)**, PowerPoint, PNG, JPG, text · **Merge** · Split · Extract/delete pages (**click thumbnails**) · Reverse · Remove blank pages · Rotate all or **just some pages** · Compress (same look, or **under 5 / 2 / 1 MB / any size**) · **Sign** (place your signature image) · Page numbers · Watermark · Black & white · Flatten forms · Add/remove password · Make searchable (OCR) · Copy all text · Extract images |
-| **Video** — MP4, MOV, MKV, WebM, AVI, WMV, FLV, MPG, 3GP, TS/MTS, DivX, RealMedia, MXF… | Convert to MP4/MKV/WebM/MOV/AVI/WMV/GIF, or **"MP4 that plays everywhere"** (fixes iPhone HEVC/HDR clips) (instant, lossless when only the container changes) · Extract audio (MP3/M4A/WAV) · **Compress** (same look, or **fit under 10 MB / 25 MB / 100 MB / any size** for Discord, email…) · Resize 1080p/720p/480p · Crop to 9:16 (Reels/TikTok), 1:1, 16:9 · **Trim** · Rotate/flip · Speed 0.5×–2× · Fix volume · Remove sound · **Join** selected · Save a frame / extract frames · Burn in / extract subtitles · iPhone ringtone · **video + audio → new soundtrack** |
+| **Images** — JPG, PNG, WebP, **HEIC** (iPhone), AVIF, GIF, TIFF, BMP, ICO, **SVG**, PSD, TGA, JPEG 2000, **camera RAW** (CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF…) | Convert to PDF/PNG/JPG/WebP/HEIC/AVIF/GIF/TIFF/BMP/ICO (animations stay animated) · Combine into one PDF · **Photos of documents → searchable PDF** · **Animated GIF / slideshow video** from selected photos · Stitch into one image · Contact sheet · Compress (same look, or **under 1 MB / 500 KB / 200 KB / any size** for upload forms) · Resize (25/50/75%, 4K, Full HD, 1280, 800, custom) · Rotate/flip · Black & white · Crop borders · Pad to square · Make white background transparent · Watermark · Website/app icon pack · Remove background (AI, optional) · Copy text out of image (OCR) · Remove location/camera info |
+| **PDF** | Convert to Word, **Excel (tables)**, PowerPoint, PNG, JPG, text · **Merge** · Split · Extract/delete pages (**click thumbnails**) · Reverse · Remove blank pages · Rotate all or **just some pages** · Compress (same look, or **under 5 / 2 / 1 MB / any size**) · **Sign** (place your signature image) · Page numbers · Watermark · Black & white · Flatten forms · Add/remove password · Make searchable (OCR) · Copy all text · Extract images · **Compare two PDFs** (what changed) |
+| **Video** — MP4, MOV, MKV, WebM, AVI, WMV, FLV, MPG, 3GP, TS/MTS, DivX, RealMedia, MXF… | Convert to MP4/MKV/WebM/MOV/AVI/WMV/GIF (instant and lossless when only the container changes) or **"MP4 that plays everywhere"** (fixes iPhone HEVC/HDR clips) · Extract audio (MP3/M4A/WAV) · **Compress** (same look, or **fit under 10 MB / 25 MB / 100 MB / any size** for Discord, email…) · Resize 1080p/720p/480p · Crop to 9:16 (Reels/TikTok), 1:1, 16:9 · **Trim** · Rotate/flip · Speed 0.5×–2× · Fix volume · Remove sound · **Join** selected · Save a frame / thumbnail grid / extract frames · Burn in / extract subtitles · iPhone ringtone · **video + audio → new soundtrack** |
 | **Audio** — MP3, WAV, FLAC, M4A, AAC, OGG, Opus, WMA, AIFF, CAF, AMR… | Convert to MP3/M4A/WAV/FLAC/OGG/Opus/AIFF · Compress · Trim · Speed · Fix volume · Join selected |
 | **Word / PowerPoint / Excel** (incl. old .doc/.ppt/.xls, OpenDocument, Apple Pages/Numbers/Keynote, WordPerfect, Publisher, Visio) | Convert to PDF · slides/pages → PNG images · Word → text · old formats → .docx/.pptx/.xlsx · **Compress** (shrinks embedded photos) · Combine into one PDF |
 | **Ebooks** — EPUB, MOBI, FB2, XPS, CBZ | Convert to PDF or text |

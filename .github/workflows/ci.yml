@@ -50,8 +50,7 @@ jobs:
         env:
           FILEWIZARD_SHELL_TEST: "1"
           FILEWIZARD_MENU_MODE: classic
-      - name: Shell tests - native menu (DLL)
-        continue-on-error: true  # elevated runner; the non-elevated step below is the real-user check
+      - name: Shell tests - native menu (DLL, machine-wide)
         run: python -m pytest -v -s tests/windows
         env:
           FILEWIZARD_SHELL_TEST: "1"
@@ -59,18 +58,25 @@ jobs:
           FILEWIZARD_NATIVE_DLL: ${{ github.workspace }}\native\fwshell.dll
           # the runner is elevated, and elevated processes ignore per-user COM classes
           FILEWIZARD_REGISTER_MACHINE: "1"
-      - name: Per-user native menu, seen by a NON-elevated process
+      - name: Per-user native menu, seen by a NON-elevated process (experiment)
         if: always()
+        continue-on-error: true
         shell: pwsh
         env:
           FILEWIZARD_NATIVE_DLL: ${{ github.workspace }}\native\fwshell.dll
         run: |
+          New-Item -ItemType File -Force "$env:LOCALAPPDATA\FileWizard\shell-debug" | Out-Null
+          Remove-Item "$env:LOCALAPPDATA\FileWizard\shell.log" -ErrorAction SilentlyContinue
           python -m filewizard install
           [Environment]::SetEnvironmentVariable("FILEWIZARD_NONINTERACTIVE", "1", "User")
           [Environment]::SetEnvironmentVariable("FILEWIZARD_NO_NOTIFY", "1", "User")
           $py = (Get-Command python).Source
-          ./tests/windows/nonelevated_probe.ps1 -Python $py -Probe "${{ github.workspace }}\tests\windows\shell_probe.py" -Click
-          python -m filewizard uninstall
+          try { ./tests/windows/nonelevated_probe.ps1 -Python $py -Probe "${{ github.workspace }}\tests\windows\shell_probe.py" -Click }
+          finally {
+            Write-Host "--- fwshell.dll log (per-user experiment) ---"
+            if (Test-Path "$env:LOCALAPPDATA\FileWizard\shell.log") { Get-Content "$env:LOCALAPPDATA\FileWizard\shell.log" -Tail 20 } else { "(no log: the shell never loaded the DLL)" }
+            python -m filewizard uninstall
+          }
       - name: Upload DLL
         uses: actions/upload-artifact@v4
         with:
@@ -113,17 +119,18 @@ jobs:
         shell: pwsh
         run: |
           Start-Process dist\FileWizard-Setup.exe -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
-          $app = "$env:LOCALAPPDATA\Programs\FileWizard"
+          $app = "${env:ProgramFiles}\FileWizard"
           & "$app\filewizard.exe" doctor
           & "$app\filewizard.exe" menu .pdf
-          reg query "HKCU\Software\Classes\CLSID\{6E2B7D59-3D4A-4C61-9F0E-FA11E3A1D0C8}" /s > reg.txt
-          if ($LASTEXITCODE -ne 0) { throw "native handler not registered" }
+          reg query "HKLM\Software\Classes\CLSID\{6E2B7D59-3D4A-4C61-9F0E-FA11E3A1D0C8}" /s > reg.txt
+          if ($LASTEXITCODE -ne 0) { throw "native handler not registered (HKLM)" }
           Get-Content reg.txt
-          Get-Content "$env:LOCALAPPDATA\FileWizard\menu.tsv" -TotalCount 25
+          $app = "${env:ProgramFiles}\FileWizard"
+          Get-Content "$app\menu.tsv" -TotalCount 25
       - name: Smoke-test the installed exe
         shell: pwsh
         run: |
-          $app = "$env:LOCALAPPDATA\Programs\FileWizard"
+          $app = "${env:ProgramFiles}\FileWizard"
           python -c "import pymupdf; d=pymupdf.open(); d.new_page().insert_text((72,72),'hi'); d.save('smoke.pdf')"
           & "$app\filewizard.exe" run pdf-to-png smoke.pdf
           if (-not (Test-Path smoke.png)) { throw "pdf-to-png failed in frozen build" }
@@ -149,11 +156,11 @@ jobs:
       - name: Uninstall cleans up
         shell: pwsh
         run: |
-          Start-Process "$env:LOCALAPPDATA\Programs\FileWizard\unins000.exe" -ArgumentList "/VERYSILENT" -Wait
+          Start-Process "${env:ProgramFiles}\FileWizard\unins000.exe" -ArgumentList "/VERYSILENT" -Wait
           Start-Sleep 3
-          reg query "HKCU\Software\Classes\CLSID\{6E2B7D59-3D4A-4C61-9F0E-FA11E3A1D0C8}" 2>$null | Out-Null
+          reg query "HKLM\Software\Classes\CLSID\{6E2B7D59-3D4A-4C61-9F0E-FA11E3A1D0C8}" 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) { throw "shell extension still registered after uninstall" }
-          reg query "HKCU\Software\Classes\*\shellex\ContextMenuHandlers\FileWizard" 2>$null | Out-Null
+          reg query "HKLM\Software\Classes\*\shellex\ContextMenuHandlers\FileWizard" 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) { throw "handler still registered after uninstall" }
           $global:LASTEXITCODE = 0
       - uses: actions/upload-artifact@v4

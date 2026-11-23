@@ -37,6 +37,7 @@ struct Node {
     enum Kind { Item, Menu, Separator } kind = Item;
     std::wstring id;      // op id (items)
     std::wstring label;
+    std::wstring mixedLabel;  // label when the selection mixes file types (optional)
     bool multi = false;   // needs 2+ files
     std::vector<Node> children;
 };
@@ -99,12 +100,23 @@ static std::vector<std::wstring> SplitTabs(const std::wstring& line) {
 //   icon    <TAB> C:\...\filewizard.ico
 //   type    <TAB> .pdf [<TAB> .pdfx ...]   (block shared by several extensions)
 //   menu    <TAB> Convert to
-//   item    <TAB> op-id <TAB> Label <TAB> flags     (flags: m = needs 2+ files)
+//   item    <TAB> op-id <TAB> Label <TAB> flags [<TAB> label for mixed selections]   (flags: m = needs 2+ files)
 //   sep
 //   end                                            (closes menu)
 //   endtype
+static std::wstring ModuleDir() {
+    wchar_t buf[MAX_PATH * 4];
+    DWORD n = GetModuleFileNameW(g_module, buf, (DWORD)(sizeof(buf) / sizeof(buf[0])));
+    if (n == 0 || n >= sizeof(buf) / sizeof(buf[0])) return std::wstring();
+    std::wstring p(buf, n);
+    size_t slash = p.find_last_of(L"\\/");
+    return slash == std::wstring::npos ? std::wstring() : p.substr(0, slash);
+}
+
 static bool LoadManifest(Manifest& m) {
-    std::wstring path = AppDir() + L"\\menu.tsv";
+    // all-users install: the manifest sits next to the DLL; per-user: in %LOCALAPPDATA%\FileWizard
+    std::wstring path = ModuleDir() + L"\\menu.tsv";
+    if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) path = AppDir() + L"\\menu.tsv";
     HANDLE f = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (f == INVALID_HANDLE_VALUE) return false;
@@ -159,6 +171,7 @@ static bool LoadManifest(Manifest& m) {
             n.id = f2[1];
             n.label = f2[2];
             n.multi = f2.size() >= 4 && f2[3].find(L'm') != std::wstring::npos;
+            if (f2.size() >= 5) n.mixedLabel = f2[4];
             target.push_back(n);
         } else if (k == L"endtype") {
             for (auto& t : typeNames) m.types[t] = top;
@@ -190,7 +203,11 @@ static std::vector<Node> Filter(const std::vector<Node>& nodes, const std::vecto
             bool everywhere = true;
             for (auto& s : others)
                 if (!s.count(n.id)) { everywhere = false; break; }
-            if (everywhere) out.push_back(n);
+            if (everywhere) {
+                Node copy = n;
+                if (!others.empty() && !n.mixedLabel.empty()) copy.label = n.mixedLabel;
+                out.push_back(copy);
+            }
         } else if (n.kind == Node::Menu) {
             Node copy = n;
             copy.children = Filter(n.children, others, count);
@@ -220,6 +237,16 @@ static std::wstring ExtKey(const std::wstring& path, const Manifest& m) {
     DWORD attrs = GetFileAttributesW(path.c_str());
     if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY)) return L"<folder>";
     return e;
+}
+
+// Menus treat '&' as a keyboard-shortcut marker; show a literal ampersand.
+static std::wstring MenuText(const std::wstring& s) {
+    std::wstring out;
+    for (wchar_t c : s) {
+        if (c == L'&') out += L'&';
+        out += c;
+    }
+    return out;
 }
 
 // 32-bit premultiplied bitmap from an .ico, for the menu item image.
@@ -395,12 +422,12 @@ private:
                 AppendMenuW(h, MF_SEPARATOR, 0, nullptr);
             } else if (n.kind == Node::Menu) {
                 HMENU child = Build(n.children, first, last);
-                if (child) AppendMenuW(h, MF_POPUP | MF_STRING, (UINT_PTR)child, n.label.c_str());
+                if (child) AppendMenuW(h, MF_POPUP | MF_STRING, (UINT_PTR)child, MenuText(n.label).c_str());
             } else {
                 UINT id = first + (UINT)m_ids.size();
                 if (id >= last) break;  // out of id space: stop adding
                 m_ids.push_back(n.id);
-                AppendMenuW(h, MF_STRING, id, n.label.c_str());
+                AppendMenuW(h, MF_STRING, id, MenuText(n.label).c_str());
             }
         }
         return h;

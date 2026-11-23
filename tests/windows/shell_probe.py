@@ -136,7 +136,9 @@ class ContextMenu:
             sub = mii.hSubMenu or None
             if sub:
                 self._hover(sub, pos)
-            out.append((buf.value.replace("&", ""), mii.wID, sub))
+            # display text: '&&' is a literal ampersand, a single '&' marks the shortcut key
+            shown = buf.value.replace("&&", "\0").replace("&", "").replace("\0", "&")
+            out.append((shown, mii.wID, sub))
         return out
 
     def tree(self, hmenu=None, depth=0, lines=None):

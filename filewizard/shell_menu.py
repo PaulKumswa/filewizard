@@ -127,14 +127,14 @@ def build_entries(command_prefix: str, icon: str | None, compact: bool = True) -
                 key = rf"{parent}\shell\{sub_idx[path]:03d}_{_slug(path[-1])}"
                 if path not in made_menus:
                     made_menus.add(path)
-                    entries.append((key, {"MUIVerb": (REG_SZ, path[-1]), "SubCommands": (REG_SZ, ""),
+                    entries.append((key, {"MUIVerb": (REG_SZ, path[-1].replace("&", "&&")), "SubCommands": (REG_SZ, ""),
                                           "MultiSelectModel": (REG_SZ, "Player")}))
                     if depth == 1:
                         nodes[key] = (sub_idx[path], op.group)
                 parent = key
             key = rf"{parent}\shell\{gidx[op.id]:03d}_{op.id}"
             vals: dict[str, tuple[str, object]] = {
-                "MUIVerb": (REG_SZ, op.label_for(ext)),
+                "MUIVerb": (REG_SZ, op.label_for(ext).replace("&", "&&")),  # '&' = shortcut marker
                 # Without this, Explorer hides the verb when more than 15 files are selected.
                 "MultiSelectModel": (REG_SZ, "Player"),
             }
@@ -301,7 +301,10 @@ def manifest_lines(command: str, icon: str | None) -> list[str]:
             if common == 0 or not op.menu:
                 prev_group = op.group
             flags = "m" if op.multi else ""
-            lines.append(f"item\t{op.id}\t{op.label_for(ext)}\t{flags}")
+            line = f"item\t{op.id}\t{op.label_for(ext)}\t{flags}"
+            if op.label_for(ext) != op.label:  # e.g. "Merge selected PDFs…" -> generic when types are mixed
+                line += f"\t{op.label}"
+            lines.append(line)
         lines += ["end"] * len(open_path)
         return lines
 
@@ -320,8 +323,9 @@ def manifest_lines(command: str, icon: str | None) -> list[str]:
     return out
 
 
-def write_manifest(command: str, icon: str | None) -> Path:
-    p = app_dir() / "menu.tsv"
+def write_manifest(command: str, icon: str | None, folder: Path | None = None) -> Path:
+    """Per-user: %LOCALAPPDATA%\\FileWizard. All-users: next to the DLL (the DLL looks there first)."""
+    p = (folder or app_dir()) / "menu.tsv"
     tmp = p.with_suffix(".tmp")
     tmp.write_text("\n".join(manifest_lines(command, icon)) + "\n", encoding="utf-8")
     tmp.replace(p)  # atomic: Explorer never reads half a file
@@ -340,16 +344,25 @@ def find_native_dll() -> Path | None:
 
 
 def _machine_wide() -> bool:
-    """Register the COM class for all users (HKLM, needs admin). Elevated processes ignore
-    per-user COM registrations, so admin tools / CI need this; normal Explorer doesn't."""
+    """Register for all users (HKLM, needs admin). Measured in CI: the shell reliably loads
+    machine-wide handlers; per-user ones weren't picked up. The installer uses this mode and
+    leaves a marker file next to the exe so later repairs/uninstalls use it too."""
     import os
 
-    return os.environ.get("FILEWIZARD_REGISTER_MACHINE") == "1"
+    if os.environ.get("FILEWIZARD_REGISTER_MACHINE") == "1":
+        return True
+    return frozen() and (Path(sys.executable).parent / "machine-install").exists()
 
 
 def _install_native(winreg, dll: Path, command: str, icon: str | None) -> None:
-    hk = winreg.HKEY_LOCAL_MACHINE if _machine_wide() else winreg.HKEY_CURRENT_USER
-    write_manifest(command, icon)
+    machine = _machine_wide()
+    hk = winreg.HKEY_LOCAL_MACHINE if machine else winreg.HKEY_CURRENT_USER
+    write_manifest(command, icon, dll.parent if machine else None)
+    if machine:  # a per-user manifest would never be read; avoid confusion
+        try:
+            (app_dir() / "menu.tsv").unlink()
+        except OSError:
+            pass
     with winreg.CreateKeyEx(hk, rf"Software\Classes\CLSID\{CLSID}", 0, winreg.KEY_WRITE) as k:
         winreg.SetValueEx(k, "", 0, winreg.REG_SZ, f"{APP_NAME} context menu")
     with winreg.CreateKeyEx(hk, rf"Software\Classes\CLSID\{CLSID}\InprocServer32", 0, winreg.KEY_WRITE) as k:
@@ -451,7 +464,11 @@ def install(mode: str = "auto") -> str:
     if mode == "native" and not dll:
         raise SystemExit("Native menu DLL (fwshell.dll) not found. Use the installer build, or set FILEWIZARD_NATIVE_DLL.")
     if dll:
-        _install_native(winreg, dll, command_prefix(launcher, "--native"), icon)
+        try:
+            _install_native(winreg, dll, command_prefix(launcher, "--native"), icon)
+        except PermissionError as e:
+            raise SystemExit("FileWizard is installed for all users: repairing the menu needs admin rights. "
+                             "Right-click 'FileWizard settings' > Run as administrator, or re-run the installer.") from e
         _refresh_explorer()
         print(f"Installed the full {APP_NAME} menu (native handler: {dll.name}).")
         used = "native"

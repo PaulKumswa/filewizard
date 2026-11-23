@@ -82,7 +82,9 @@ def test_menu_shows_for_pdf(tmp_path):
     lines = shell_probe.dump([_pdf(tmp_path / "a.pdf")])
     print("\n".join(lines))
     text = "\n".join(lines)
-    assert "Merge" in text and "Compress" in text
+    assert "Compress" in text
+    if MODE == "classic":  # classic verbs can't see the selection; native hides Merge for one file
+        assert "Merge" in text
 
 
 def test_menu_shows_for_image(tmp_path):
@@ -203,3 +205,14 @@ def test_native_com_object_creates():
                                 ctypes.byref(ptr))
     print(f"CoCreateInstance hr=0x{hr & 0xFFFFFFFF:08X}")
     assert hr == 0
+
+
+@native_only
+def test_native_ampersand_and_mixed_label(tmp_path):
+    single = shell_probe.ContextMenu([_pdf(tmp_path / "one.pdf")])
+    edit = single.find(["FileWizard", "Edit"])[1]
+    labels = [t for t, _, _ in single.items(edit)]
+    print(labels)
+    assert "Black & white" in labels, labels
+    lines = shell_probe.dump([_pdf(tmp_path / "doc.pdf"), _img(tmp_path / "pic.jpg")])
+    assert any("Combine selected into one PDF" in ln for ln in lines), lines

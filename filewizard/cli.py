@@ -250,20 +250,31 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("out", nargs="?")
     e.set_defaults(fn=cmd_export_reg)
 
+    def _machine(a):
+        if getattr(a, "machine", False):
+            import os
+
+            os.environ["FILEWIZARD_REGISTER_MACHINE"] = "1"
+
     def _install(a):
         from .shell_menu import install
+        _machine(a)
         install("classic" if a.classic else "auto")
         return 0
 
-    def _uninstall(_):
+    def _uninstall(a):
         from .shell_menu import uninstall
+        _machine(a)
         uninstall()
         return 0
 
     ins = sub.add_parser("install", help="add the right-click menu (Windows)")
     ins.add_argument("--classic", action="store_true", help="registry-only menu (no shell extension DLL)")
+    ins.add_argument("--machine", action="store_true", help="register for all users (needs admin)")
     ins.set_defaults(fn=_install)
-    sub.add_parser("uninstall", help="remove the right-click menu (Windows)").set_defaults(fn=_uninstall)
+    un = sub.add_parser("uninstall", help="remove the right-click menu (Windows)")
+    un.add_argument("--machine", action="store_true", help="also remove the all-users registration (needs admin)")
+    un.set_defaults(fn=_uninstall)
 
     args = ap.parse_args(argv)
     return args.fn(args)

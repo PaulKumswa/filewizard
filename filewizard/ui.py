@@ -809,7 +809,7 @@ def pick_pages(pdf: Path, verb: str, max_pages: int = 400) -> str | None:
     for i, page in enumerate(doc):
         zoom = thumb / max(page.rect.width, page.rect.height)
         pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
-        img = tk.PhotoImage(data=pix.tobytes("ppm"))
+        img = tk.PhotoImage(master=root, data=pix.tobytes("ppm"))
         images.append(img)
         tile = tk.Frame(grid, background=THEME["canvas"], padx=4, pady=4, cursor="hand2")
         tile.grid(row=i // cols, column=i % cols, padx=6, pady=6)
@@ -894,7 +894,7 @@ def place_signature(pdf: Path, sig_png: bytes) -> dict | None:
         page = doc[state["page"]]
         view["scale"] = max_h / page.rect.height
         pix = page.get_pixmap(matrix=pymupdf.Matrix(view["scale"], view["scale"]), alpha=False)
-        view["img"] = tk.PhotoImage(data=pix.tobytes("ppm"))
+        view["img"] = tk.PhotoImage(master=root, data=pix.tobytes("ppm"))
         canvas.configure(width=pix.width, height=pix.height)
         canvas.delete("all")
         canvas.create_image(0, 0, image=view["img"], anchor="nw")
@@ -915,7 +915,7 @@ def place_signature(pdf: Path, sig_png: bytes) -> dict | None:
             im = im.resize((w_px, max(1, int(w_px * sig_ratio))))
             buf = io.BytesIO()
             im.save(buf, "PNG")
-            view["sig"] = tk.PhotoImage(data=buf.getvalue())
+            view["sig"] = tk.PhotoImage(master=root, data=buf.getvalue())
             view["sig_w"] = w_px
         canvas.create_image(state["x"], state["y"], image=view["sig"], tags="sig")
         h_px = int(w_px * sig_ratio)

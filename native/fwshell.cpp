@@ -210,12 +210,15 @@ static std::vector<Node> Filter(const std::vector<Node>& nodes, const std::vecto
     return tidy;
 }
 
-static std::wstring ExtKey(const std::wstring& path) {
-    DWORD attrs = GetFileAttributesW(path.c_str());
-    if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY)) return L"<folder>";
+// Menu key for a path: its lower-case extension, or "<folder>". Touching the disk is slow on
+// network drives with big selections, so only names without a known extension are checked.
+static std::wstring ExtKey(const std::wstring& path, const Manifest& m) {
     LPCWSTR ext = PathFindExtensionW(path.c_str());
     std::wstring e = (ext && *ext) ? ext : L"";
     std::transform(e.begin(), e.end(), e.begin(), ::towlower);
+    if (!e.empty() && m.types.count(e)) return e;
+    DWORD attrs = GetFileAttributesW(path.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY)) return L"<folder>";
     return e;
 }
 
@@ -315,7 +318,7 @@ public:
 
             // which menu: the first file's type; others narrow it to shared actions
             std::vector<std::wstring> keys;
-            for (auto& f : m_files) keys.push_back(ExtKey(f));
+            for (auto& f : m_files) keys.push_back(ExtKey(f, m));
             auto pick = [&](const std::wstring& k) -> const std::vector<Node>* {
                 auto it = m.types.find(k);
                 if (it == m.types.end() && k != L"<folder>") it = m.types.find(L"*");

@@ -158,6 +158,27 @@ jobs:
           & "$app\filewizard.exe" run img-ocr ocr.png
           if (-not (Select-String -Path ocr.txt -Pattern "Invoice" -Quiet)) { throw "bundled OCR failed" }
           Write-Host "OK: OCR works out of the box"
+          # broader frozen-build coverage: libraries with hidden imports are what break in installers
+          python -c "import pymupdf; d=pymupdf.open(); p=d.new_page(); p.insert_text((72,72),'Hello Word'); d.save('w.pdf'); d.save('w2.pdf')"
+          "name,amount`nAda,10" | Out-File -Encoding utf8 data.csv
+          "# Title`n`nSome **text**." | Out-File -Encoding utf8 notes.md
+          $checks = @(
+            @("pdf-to-docx", "w.pdf", "w.docx"),
+            @("pdf-to-xlsx", "w.pdf", $null),
+            @("img-to-avif", "smoke.jpg", "smoke.avif"),
+            @("combine-pdf", "w.pdf w2.pdf", "w (merged).pdf"),
+            @("7z", "data.csv", "data.7z"),
+            @("doc-to-pdf", "notes.md", "notes.pdf"),
+            @("data-to-xlsx", "data.csv", "data.xlsx"),
+            @("pdf-to-pptx", "w.pdf", "w.pptx"),
+            @("vid-under-custom -p mb=1", "smoke.mp4", "smoke (under 1 MB).mp4")
+          )
+          foreach ($c in $checks) {
+            $args_ = @("run") + $c[0].Split(" ") + $c[1].Split(" ")
+            & "$app\filewizard.exe" @args_ | Out-Null
+            if ($c[2] -and -not (Test-Path $c[2])) { throw "frozen build: $($c[0]) did not produce $($c[2])" }
+            Write-Host "OK: $($c[0])"
+          }
           $t1 = (Measure-Command { & "$app\filewizard.exe" --version | Out-Null }).TotalSeconds
           $t2 = (Measure-Command { & "$app\filewizard.exe" run img-to-png smoke.jpg | Out-Null }).TotalSeconds
           Write-Host ("TIMING: startup {0:N2}s, JPG->PNG end to end {1:N2}s" -f $t1, $t2)

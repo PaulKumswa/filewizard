@@ -51,6 +51,7 @@ jobs:
           FILEWIZARD_SHELL_TEST: "1"
           FILEWIZARD_MENU_MODE: classic
       - name: Shell tests - native menu (DLL)
+        continue-on-error: true  # elevated runner; the non-elevated step below is the real-user check
         run: python -m pytest -v -s tests/windows
         env:
           FILEWIZARD_SHELL_TEST: "1"
@@ -59,6 +60,7 @@ jobs:
           # the runner is elevated, and elevated processes ignore per-user COM classes
           FILEWIZARD_REGISTER_MACHINE: "1"
       - name: Per-user native menu, seen by a NON-elevated process
+        if: always()
         shell: pwsh
         env:
           FILEWIZARD_NATIVE_DLL: ${{ github.workspace }}\native\fwshell.dll

@@ -53,6 +53,8 @@ class Operation:
     exclude_exts: frozenset[str] = field(default_factory=frozenset)
     labels: tuple[tuple[str, str], ...] = ()     # per-extension label overrides
     help: str = ""
+    priority: int = 1                            # 1 = core; 2 = dropped first when space is short
+    multi: bool = False                          # only meaningful with 2+ files selected
 
     def applies_to(self, ext: str) -> bool:
         ext = ext.lower()
@@ -370,6 +372,8 @@ def _build() -> list[Operation]:
         batch=lambda ps, prm: files.rename(sorted(ps, key=natural_key), prm["pattern"]), ask=_ask_rename,
         param_names=("pattern",))
     add("checksum", "Checksum (SHA-256)", {ANY_FILE}, "more", menu=MORE, batch=lambda ps, _: files.checksums(ps))
+    add("palette", "All actions…", {ANY_FILE, DIR}, "palette",
+        batch=lambda ps, _: ([], ""), help="Search every FileWizard action for the selection")
     add("folder-combine-pdf", "Combine PDFs/images inside into one PDF", {DIR}, "more", menu=MORE,
         per_file=lambda p, _: pdf.combine_any(_folder_docs(p)))
     return ops
@@ -386,7 +390,29 @@ def _folder_docs(folder: Path) -> list[Path]:
     return pdfs_out
 
 
-OPERATIONS: list[Operation] = _build()
+# Shown only in the full (native) menu and the "All actions…" palette when the classic
+# registry menu has to fit Windows' 16-entry limit.
+SECONDARY = {
+    "img-to-tiff", "img-to-bmp", "img-to-ico", "img-to-gif", "img-to-avif", "img-contact-sheet",
+    "img-resize-25pct", "img-resize-75pct", "img-resize-3840px", "img-resize-1280px", "img-resize-800px",
+    "img-rotate-180", "img-rotate-hflip", "img-rotate-vflip", "img-gray", "img-trim", "img-square", "img-nobg",
+    "img-strip", "img-ocr", "pdf-reverse", "pdf-remove-blank", "pdf-rotate-180", "pdf-gray", "pdf-flatten",
+    "pdf-extract-images", "pdf-watermark", "pdf-to-txt", "vid-to-wmv", "vid-to-avi", "vid-to-mkv", "vid-frames",
+    "vid-rotate-180", "vid-rotate-hflip", "vid-rotate-vflip", "media-speed-1_25", "media-speed-1_5",
+    "media-speed-0_5", "media-speed-2_0", "vid-under-100", "vid-480p", "aud-to-flac", "aud-to-ogg",
+    "aud-to-opus", "aud-to-aiff", "aud-to-wav", "7z", "checksum", "rename", "vid-snapshot", "media-normalize",
+    "vid-1080p", "vid-720p", "vid-under-custom", "vid-to-webm", "img-resize-3840px", "pdf-to-jpg",
+}
+MULTI = {"combine-pdf", "media-join", "img-contact-sheet"}
+
+
+def _finalize(ops: list[Operation]) -> list[Operation]:
+    from dataclasses import replace
+
+    return [replace(op, priority=2 if op.id in SECONDARY else 1, multi=op.id in MULTI) for op in ops]
+
+
+OPERATIONS: list[Operation] = _finalize(_build())
 BY_ID: dict[str, Operation] = {op.id: op for op in OPERATIONS}
 ALL_EXTS: list[str] = sorted({e for op in OPERATIONS for e in op.exts if e not in (DIR, ANY_FILE)})
 
@@ -396,6 +422,12 @@ assert len(_ids) == len(set(_ids)), "duplicate operation id"
 
 def for_ext(ext: str) -> list[Operation]:
     return [op for op in OPERATIONS if op.applies_to(ext)]
+
+
+def for_selection(files: list[Path]) -> list[Operation]:
+    """Actions that make sense for this selection: they apply to every selected file
+    (batch actions like Combine/Join/ZIP need only apply to each file too)."""
+    return [op for op in OPERATIONS if op.id != "palette" and all(op.applies_to_path(f) for f in files)]
 
 
 def execute(op: Operation, files: list[Path], params: Params) -> tuple[list[Path], list[str], list[str]]:

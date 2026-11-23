@@ -51,6 +51,15 @@ def cmd_run(args) -> int:
         paths = gathered
     files = [Path(p) for p in paths]
     log.info("run %s on %d file(s): %s", op.id, len(files), [f.name for f in files])
+    if op.id == "palette":
+        from .operations import for_selection
+
+        choices = for_selection(files)
+        chosen = ui.palette(files, choices) if choices else None
+        if not chosen:
+            return 1
+        op = BY_ID[chosen]
+        log.info("palette -> %s", op.id)
 
     from .util import PROGRESS, Cancelled
 
@@ -133,15 +142,36 @@ def cmd_export_reg(args) -> int:
     return 0
 
 
-def cmd_doctor(args) -> int:
-    from .office import backend_report
+def doctor_text() -> str:
+    import io
+    from contextlib import redirect_stdout
 
-    def check(mod, label):
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        cmd_doctor(None)
+    return buf.getvalue()
+
+
+def cmd_settings(args) -> int:
+    from . import ui
+    from .shell_menu import install, uninstall
+    from .util import app_dir
+
+    ui.settings_window(doctor_text, install, lambda: uninstall(quiet=True), app_dir() / "filewizard.log")
+    return 0
+
+
+def cmd_doctor(args) -> int:
+    from .media import ffmpeg
+    from .office import backend_report
+    from .pdf import tessdata
+
+    def check(mod, label, hint=None):
         try:
             __import__(mod)
             print(f"  [ok] {label}")
         except ImportError:
-            print(f"  [--] {label} (pip install {mod.replace('_', '-')})")
+            print(f"  [--] {label} ({hint or 'pip install ' + mod.replace('_', '-')})")
 
     print(f"Python {sys.version.split()[0]} at {sys.executable}")
     check("pymupdf", "PyMuPDF (PDF tools)")
@@ -155,6 +185,17 @@ def cmd_doctor(args) -> int:
         print("  [ok] tkinter (prompts)")
     except ImportError:
         print("  [--] tkinter (prompts) — reinstall Python with the Tcl/Tk option")
+    check("rawpy", "rawpy (camera RAW photos)")
+    check("py7zr", "py7zr (7z archives)")
+    check("openpyxl", "openpyxl (Excel)")
+    check("rembg", "rembg (AI background removal, optional)", "pip install rembg")
+    try:
+        print(f"  [ok] ffmpeg (video/audio): {ffmpeg()}")
+    except Exception:
+        print("  [--] ffmpeg (video/audio) (pip install imageio-ffmpeg)")
+    td = tessdata()
+    print(f"  [{'ok' if td else '--'}] Tesseract OCR" + (f": {td}" if td else
+          " (optional: https://github.com/UB-Mannheim/tesseract/wiki)"))
     print(backend_report())
     return 0
 
@@ -175,6 +216,7 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("ext")
     m.set_defaults(fn=lambda a: print(__import__("filewizard.shell_menu", fromlist=["x"]).render_menu(a.ext)) or 0)
     sub.add_parser("doctor", help="check optional dependencies").set_defaults(fn=cmd_doctor)
+    sub.add_parser("settings", help="open the settings window").set_defaults(fn=cmd_settings)
     e = sub.add_parser("export-reg", help="write the menu's registry entries to a .reg file")
     e.add_argument("out", nargs="?")
     e.set_defaults(fn=cmd_export_reg)

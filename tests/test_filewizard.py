@@ -390,3 +390,22 @@ def test_every_op_has_a_menu_home():
         assert any(op.applies_to(e) for e in [*operations.ALL_EXTS, operations.DIR]), op.id
         assert (op.per_file is None) != (op.batch is None), op.id
         assert not (op.param_names and op.ask is None), op.id
+
+
+def test_classic_menus_fit_windows_16_entry_limit():
+    """Measured in CI: Windows shows at most 16 entries in a registry cascade. Never exceed it,
+    and always end with "All actions…" when something had to be left out."""
+    from filewizard.operations import ALL_EXTS, DIR, for_ext
+
+    entries = dict(shell_menu.build_entries("x", None))
+    for ext in [*ALL_EXTS, DIR]:
+        base = shell_menu._menu_root(ext)
+        n = sum(1 for k in entries if k.startswith(base + "\\") and not k.endswith("\\command"))
+        assert n <= 16, (ext, n)
+        full = shell_menu._cost([op for op in for_ext(ext) if op.id != "palette"])
+        if full > 15:
+            assert any(k.endswith("_palette") for k in entries if k.startswith(base + "\\")), ext
+
+
+def test_png_menu_still_has_webp_for_mixed_selection_test():
+    assert "WebP" in shell_menu.render_menu(".png") and "WebP" in shell_menu.render_menu(".jpg")

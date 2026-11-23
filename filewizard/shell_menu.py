@@ -56,7 +56,48 @@ def applies_to_unknown() -> str:
     return "NOT (" + " OR ".join(f'System.FileExtension:="{e}"' for e in ALL_EXTS) + ")"
 
 
-def build_entries(command_prefix: str, icon: str | None) -> Entries:
+CLASSIC_LIMIT = 16  # Windows shows at most 16 entries in a registry-defined cascade (measured in CI)
+
+
+def _cost(ops) -> int:
+    """Entries an op set occupies: every item plus one per distinct submenu path."""
+    menus = {op.menu[:d] for op in ops for d in range(1, len(op.menu) + 1)}
+    return len(ops) + len(menus)
+
+
+def fit_classic(ops: list) -> list:
+    """Choose what fits in Windows' 16-entry cascade, keeping menu order.
+
+    Core actions first (in menu order), then secondary ones while room remains; the last
+    slot is always "All actions…", which opens the searchable palette with everything."""
+    palette = [op for op in ops if op.id == "palette"]
+    rest = [op for op in ops if op.id != "palette"]
+    if _cost(rest) + len(palette) <= CLASSIC_LIMIT:
+        return rest + palette
+    budget = CLASSIC_LIMIT - len(palette)
+    chosen: list = []
+    for op in rest:  # core actions, in menu order
+        if op.priority == 1 and _cost(chosen + [op]) <= budget:
+            chosen.append(op)
+    # optional extras: a submenu goes in whole or not at all (half a "Speed ▸" looks broken),
+    # unless that submenu is already present because of a core action
+    groups: dict[tuple, list] = {}
+    for op in rest:
+        if op.priority == 2:
+            groups.setdefault(op.menu[:1] or (op.id,), []).append(op)
+    present = {op.menu[:1] for op in chosen if op.menu}
+    for key, members in groups.items():
+        if key in present:
+            for op in members:
+                if _cost(chosen + [op]) <= budget:
+                    chosen.append(op)
+        elif _cost(chosen + members) <= budget:
+            chosen.extend(members)
+    order = {op.id: i for i, op in enumerate(rest)}
+    return sorted(chosen, key=lambda op: order[op.id]) + palette
+
+
+def build_entries(command_prefix: str, icon: str | None, compact: bool = True) -> Entries:
     """All registry keys/values to create. `command_prefix` gets ` <op-id> "%1"` appended."""
     entries: Entries = []
     sub_idx = _submenu_index()
@@ -65,6 +106,8 @@ def build_entries(command_prefix: str, icon: str | None) -> Entries:
         ops = for_ext(ext) if ext != ANY_FILE else [op for op in OPERATIONS if ANY_FILE in op.exts]
         if not ops:
             continue
+        if compact:
+            ops = fit_classic(ops)
         base = _menu_root(ext)
         top = {"MUIVerb": (REG_SZ, APP_NAME), "SubCommands": (REG_SZ, "")}
         if ext == ANY_FILE:

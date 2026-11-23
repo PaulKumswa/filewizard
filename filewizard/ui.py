@@ -301,7 +301,6 @@ def run_with_progress(title: str, work: Callable[[], T]) -> T:
     if not interactive():
         return work()
     try:
-        import tkinter as tk
         from tkinter import ttk
     except ImportError:
         return work()
@@ -446,4 +445,131 @@ def notify_done(outputs: list[Path], summary: str = "") -> None:
             root.after(500, tick, left - 0.5)
 
     tick()
+    root.mainloop()
+
+
+# ---------- command palette ("All actions…") ----------
+
+def palette(files: list[Path], ops: list) -> str | None:
+    """Searchable list of every action that applies to the selection. Returns an op id."""
+    if not interactive():
+        raise RuntimeError("The action palette needs a desktop session.")
+    import tkinter as tk
+    from tkinter import ttk
+
+    n = len(files)
+    title = files[0].name if n == 1 else f"{n} files selected"
+    root = _root(f"{APP_NAME} — {title}", hidden=False)
+    frm = ttk.Frame(root, padding=12)
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text=f"What should FileWizard do with {title}?",
+              font=("Segoe UI", 11, "bold")).pack(anchor="w")
+    q = tk.StringVar()
+    entry = ttk.Entry(frm, textvariable=q, width=60, font=("Segoe UI", 11))
+    entry.pack(fill="x", pady=(8, 6))
+    tree = ttk.Treeview(frm, show="tree", height=18, selectmode="browse")
+    tree.pack(fill="both", expand=True)
+    tree.column("#0", width=520)
+    result: dict[str, str | None] = {"v": None}
+    section_names = {"convert": "Convert", "combine": "Combine", "edit": "Edit", "extract": "Extract",
+                     "archive": "Archive", "more": "More"}
+
+    def fill(*_):
+        tree.delete(*tree.get_children())
+        words = q.get().lower().split()
+        groups: dict[str, str] = {}
+        first = None
+        for op in ops:
+            hay = f"{op.full_label} {op.id} {op.help}".lower()
+            if not all(w in hay for w in words):
+                continue
+            g = op.menu[0] if op.menu else section_names.get(op.group, op.group.title())
+            if g not in groups:
+                groups[g] = tree.insert("", "end", text=g, open=True)
+            label = op.label if op.menu and op.menu[0] == g else op.full_label
+            iid = tree.insert(groups[g], "end", iid=op.id, text="    " + label.replace(" ▸ ", " › "))
+            first = first or iid
+        if first:
+            tree.selection_set(first)
+            tree.see(first)
+            tree.yview_moveto(0)  # keep the first section heading visible
+
+    def choose(_=None):
+        sel = tree.selection()
+        if sel and sel[0] in {op.id for op in ops}:
+            result["v"] = sel[0]
+            root.destroy()
+
+    def move(delta):
+        items = [i for g in tree.get_children() for i in tree.get_children(g)]
+        if not items:
+            return "break"
+        cur = tree.selection()
+        i = items.index(cur[0]) if cur and cur[0] in items else -1
+        nxt = items[max(0, min(len(items) - 1, i + delta))]
+        tree.selection_set(nxt)
+        tree.see(nxt)
+        return "break"
+
+    q.trace_add("write", fill)
+    entry.bind("<Down>", lambda e: move(1))
+    entry.bind("<Up>", lambda e: move(-1))
+    root.bind("<Return>", choose)
+    root.bind("<Escape>", lambda e: root.destroy())
+    tree.bind("<Double-1>", choose)
+    foot = ttk.Frame(frm)
+    foot.pack(fill="x", pady=(8, 0))
+    ttk.Label(foot, text="Type to search · ↑↓ to pick · Enter to run", foreground="#666").pack(side="left")
+    ttk.Button(foot, text="Cancel", command=root.destroy).pack(side="right")
+    ttk.Button(foot, text="Run", command=choose).pack(side="right", padx=6)
+    fill()
+    _center(root)
+    root.after(50, lambda: (root.lift(), root.focus_force(), entry.focus_set()))
+    root.mainloop()
+    return result["v"]
+
+
+# ---------- settings window ----------
+
+def settings_window(doctor_text: Callable[[], str], reinstall: Callable[[], None],
+                    remove: Callable[[], None], log_path: Path) -> None:
+    import tkinter as tk
+    from tkinter import ttk
+
+    from . import __version__
+    from .settings import load, save
+
+    root = _root(f"{APP_NAME} settings", hidden=False)
+    root.resizable(False, False)
+    frm = ttk.Frame(root, padding=16)
+    frm.pack(fill="both", expand=True)
+    ttk.Label(frm, text=f"{APP_NAME} {__version__}", font=("Segoe UI", 14, "bold")).pack(anchor="w")
+    ttk.Label(frm, text="Right-click any file → FileWizard. On Windows 11: “Show more options” or Shift+right-click.",
+              foreground="#555", wraplength=460).pack(anchor="w", pady=(2, 12))
+
+    cfg = load()
+    notify = tk.BooleanVar(value=cfg.get("notify", True))
+    ttk.Checkbutton(frm, text="Show a “Done” notification with Open / Show in folder",
+                    variable=notify, command=lambda: save({"notify": notify.get()})).pack(anchor="w")
+
+    status = ttk.Label(frm, text="", foreground=ACCENT)
+
+    def do(fn, ok_text):
+        try:
+            fn()
+            status.configure(text=ok_text)
+        except BaseException as e:  # SystemExit from install on Store Python etc.
+            status.configure(text=str(e)[:200], foreground="#b00020")
+
+    row = ttk.Frame(frm)
+    row.pack(fill="x", pady=(14, 4))
+    ttk.Button(row, text="Repair right-click menu", command=lambda: do(reinstall, "Menu re-installed ✓")).pack(side="left")
+    ttk.Button(row, text="Remove right-click menu", command=lambda: do(remove, "Menu removed.")).pack(side="left", padx=6)
+    row2 = ttk.Frame(frm)
+    row2.pack(fill="x", pady=4)
+    ttk.Button(row2, text="Check optional tools…", command=lambda: show_text("Optional tools", doctor_text())).pack(side="left")
+    ttk.Button(row2, text="Open log", command=lambda: log_path.exists() and open_file(log_path)).pack(side="left", padx=6)
+    status.pack(anchor="w", pady=(8, 0))
+    ttk.Button(frm, text="Close", command=root.destroy).pack(anchor="e", pady=(12, 0))
+    _center(root)
     root.mainloop()

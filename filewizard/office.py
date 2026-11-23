@@ -63,7 +63,10 @@ def _via_msoffice(src: Path, out: Path, target: str) -> bool:
             doc = app.Documents.Open(s, ReadOnly=True, AddToRecentFiles=False, ConfirmConversions=False,
                                      PasswordDocument="fw-no-password", Visible=False)
             try:
-                doc.SaveAs2(o, FileFormat=_WD_PDF if target == ".pdf" else _WD_DOCX)
+                if target == ".txt":
+                    doc.SaveAs2(o, FileFormat=2, Encoding=65001)  # plain text, UTF-8
+                else:
+                    doc.SaveAs2(o, FileFormat=_WD_PDF if target == ".pdf" else _WD_DOCX)
             finally:
                 doc.Close(False)
         finally:
@@ -121,6 +124,9 @@ def find_soffice() -> str | None:
     return None
 
 
+_LO_FILTERS = {".txt": "txt:Text (encoded):UTF8"}
+
+
 def _via_libreoffice(src: Path, out: Path, target: str) -> bool:
     soffice = find_soffice()
     if not soffice:
@@ -129,7 +135,7 @@ def _via_libreoffice(src: Path, out: Path, target: str) -> bool:
         # A private profile dir lets this run even while the user has LibreOffice open.
         profile = Path(tmp, "profile").as_uri()
         cmd = [soffice, f"-env:UserInstallation={profile}", "--headless", "--norestore",
-               "--convert-to", target[1:], "--outdir", tmp, str(src)]
+               "--convert-to", _LO_FILTERS.get(target, target[1:]), "--outdir", tmp, str(src)]
         flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, creationflags=flags)
         produced = Path(tmp, src.stem + target)

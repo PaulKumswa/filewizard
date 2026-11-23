@@ -99,3 +99,10 @@ def test_compress_pptx_pictures(tmp_path):
     assert out.stat().st_size < src.stat().st_size * 0.6
     reopened = pptx.Presentation(out)  # still a valid deck
     assert len(reopened.slides) == 1
+
+
+def test_word_to_text(tmp_path):
+    src = _docx(tmp_path / "Note.docx", "Plain words")
+    assert run("word-to-txt", src) == 0
+    text = (tmp_path / "Note.txt").read_text(encoding="utf-8-sig")
+    assert "Plain words" in text and "ünïcödé" in text

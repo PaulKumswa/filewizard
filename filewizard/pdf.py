@@ -359,11 +359,18 @@ def grayscale(src: Path, dpi: int = 200) -> list[Path]:
 # ---------- OCR (needs Tesseract) ----------
 
 def tessdata() -> str | None:
+    """Folder with eng.traineddata. The installer bundles it, so OCR works without installing
+    Tesseract (PyMuPDF has the OCR engine built in and only needs the language data)."""
     import os
+    import sys
 
     env = os.environ.get("TESSDATA_PREFIX")
     if env and Path(env).exists():
         return env
+    if getattr(sys, "frozen", False):
+        for base in (Path(getattr(sys, "_MEIPASS", "")), Path(sys.executable).parent):
+            if (base / "tessdata" / "eng.traineddata").exists():
+                return str(base / "tessdata")
     for base in (r"C:\Program Files\Tesseract-OCR\tessdata", r"C:\Program Files (x86)\Tesseract-OCR\tessdata",
                  str(Path.home() / "AppData/Local/Programs/Tesseract-OCR/tessdata"),
                  "/usr/share/tesseract-ocr/5/tessdata", "/usr/share/tesseract-ocr/4.00/tessdata",

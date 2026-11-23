@@ -14,6 +14,10 @@ for pkg in ("pymupdf", "pillow_heif", "rawpy", "imageio_ffmpeg", "pdf2docx", "py
 hidden += ["filewizard." + m for m in ("archives", "cli", "collector", "docs", "files", "images", "media",
                                         "office", "operations", "pdf", "settings", "shell_menu", "ui", "util")]
 hidden += ["win32com.client", "pythoncom", "pywintypes"]
+# OCR language data (downloaded by CI into installer/tessdata); PyMuPDF has the OCR engine built in
+import os
+if os.path.exists("tessdata/eng.traineddata"):
+    datas += [("tessdata/eng.traineddata", "tessdata")]
 
 a = Analysis(["entry.py"], pathex=[".."], datas=datas, binaries=binaries, hiddenimports=hidden,
              # onnxruntime/pymupdf_layout/pymupdf4llm arrive as optional PyMuPDF extras that

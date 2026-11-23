@@ -111,6 +111,12 @@ jobs:
       - name: Build native shell extension (MSVC)
         shell: cmd
         run: cl /nologo /O2 /EHsc /std:c++17 /W3 /DUNICODE /D_UNICODE /LD native\fwshell.cpp /Fe:native\fwshell.dll /link /DEF:native\fwshell.def shlwapi.lib ole32.lib shell32.lib user32.lib gdi32.lib uuid.lib
+      - name: Fetch OCR language data (English, fast model)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force installer\tessdata | Out-Null
+          Invoke-WebRequest "https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata" -OutFile installer\tessdata\eng.traineddata
+          Get-Item installer\tessdata\eng.traineddata | Select-Object Name, Length
       - name: Freeze with PyInstaller
         working-directory: installer
         run: pyinstaller filewizard.spec --noconfirm --distpath ../dist --workpath ../build
@@ -148,6 +154,10 @@ jobs:
           if (-not (Test-Path smoke.mp3)) { throw "ffmpeg (bundled) failed in frozen build" }
           & "$app\filewizard.exe" run vid-to-gif smoke.mp4
           if (-not (Test-Path smoke.gif)) { throw "video->gif failed in frozen build" }
+          python -c "from PIL import Image, ImageDraw, ImageFont; im=Image.new('RGB',(1400,240),'white'); ImageDraw.Draw(im).text((40,60),'Invoice 2026 total 42',fill='black',font=ImageFont.truetype('arial.ttf',90)); im.save('ocr.png')"
+          & "$app\filewizard.exe" run img-ocr ocr.png
+          if (-not (Select-String -Path ocr.txt -Pattern "Invoice" -Quiet)) { throw "bundled OCR failed" }
+          Write-Host "OK: OCR works out of the box"
           $t1 = (Measure-Command { & "$app\filewizard.exe" --version | Out-Null }).TotalSeconds
           $t2 = (Measure-Command { & "$app\filewizard.exe" run img-to-png smoke.jpg | Out-Null }).TotalSeconds
           Write-Host ("TIMING: startup {0:N2}s, JPG->PNG end to end {1:N2}s" -f $t1, $t2)
